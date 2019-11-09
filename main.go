@@ -56,7 +56,7 @@ func main() {
 	// kn, err := makeAndStartNode(ctx)
 
 	// Set default values
-	path := ""
+	path := "node_data"
 	relay := false
 	bucketSize := 20
 	ds, err := levelds.NewDatastore(path, nil)
@@ -64,7 +64,7 @@ func main() {
 		panic(err)
 	}
 
-	kn, err := _makeAndStartNode(ctx, ds, "/ip4/0.0.0.0/tcp/19264", relay, bucketSize)
+	kn, err := makeAndStartNode(ctx, ds, "/ip4/0.0.0.0/tcp/19264", relay, bucketSize)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +72,7 @@ func main() {
 	kn.Run()
 }
 
-func makeAndStartNode(ctx context.Context) (*KadNode, error) {
+func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
 	var kaddht *dht.IpfsDHT
 	newDHT := func(h host.Host) (routing.PeerRouting, error) {
 		var err error
@@ -118,7 +118,7 @@ func makeAndStartNode(ctx context.Context) (*KadNode, error) {
 
 var bootstrapDone int64
 
-func _makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay bool, bucketSize int) (*KadNode, error) {
+func makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay bool, bucketSize int) (*KadNode, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
@@ -154,16 +154,6 @@ func _makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay b
 	h.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
 
 	return kn, nil
-}
-
-func bootstrapper() pstore.PeerInfo {
-	addr := dht.DefaultBootstrapPeers[rand.Intn(len(dht.DefaultBootstrapPeers))]
-	ai, err := pstore.InfoFromP2pAddr(addr)
-	if err != nil {
-		panic(err)
-	}
-
-	return *ai
 }
 
 func (kn *KadNode) handler(s network.Stream) {
@@ -319,10 +309,10 @@ func (kn *KadNode) handleDHTBootstrap(seeds ...multiaddr.Multiaddr) error {
 func (kn *KadNode) _handleDHTBootstrap() error {
 	// bootstrap in the background
 	// it's safe to start doing this _before_ establishing any connections
-	// as we'll trigger a boostrap round as soon as we get a connection
+	// as we'll trigger a boostrap round as soon as we get a connection (?)
 	// anyways.
 
-	bootstrapConcurency := 32
+	bootstrapConcurency := 3
 	limiter := make(chan struct{}, bootstrapConcurency)
 
 	go func() {
@@ -330,11 +320,15 @@ func (kn *KadNode) _handleDHTBootstrap() error {
 			limiter <- struct{}{}
 		}
 
-		for i := 0; i < 10; i++ {
-			if err := kn.h.Connect(context.Background(), bootstrapper()); err != nil {
-				fmt.Println("===bootstrap connect failed: ", err)
-				i--
-			}
+		// for i := 0; i < 10; i++ {
+		// 	if err := kn.h.Connect(context.Background(), bootstrapper()); err != nil {
+		// 		fmt.Println("===bootstrap connect failed: ", err)
+		// 		i--
+		// 	}
+		// }
+
+		if err := kn.h.Connect(context.Background(), bootstrapper()); err != nil {
+			fmt.Println("bootstrap connect failed: ", err)
 		}
 
 		if limiter != nil {
@@ -344,8 +338,18 @@ func (kn *KadNode) _handleDHTBootstrap() error {
 
 	}()
 
-	kn.dht.Bootstrap(context.Background())
-	kn.dht.RoutingTable().Print()
+	// kn.dht.Bootstrap(context.Background())
+	// kn.dht.RoutingTable().Print()
 
 	return nil
+}
+
+func bootstrapper() pstore.PeerInfo {
+	addr := dht.DefaultBootstrapPeers[rand.Intn(len(dht.DefaultBootstrapPeers))]
+	ai, err := pstore.InfoFromP2pAddr(addr)
+	if err != nil {
+		panic(err)
+	}
+
+	return *ai
 }
