@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	ipns "github.com/ipfs/go-ipns"
 
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -28,7 +29,6 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	record "github.com/libp2p/go-libp2p-record"
 	"github.com/manifoldco/promptui"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -48,6 +48,9 @@ type KadNode struct {
 }
 
 func main() {
+	path := flag.String("db", "dht-data", "Database folder")
+	flag.Parse()
+
 	// ~~ 0c. Note that contexts are an ugly way of controlling component
 	// lifecycles. Talk about the service-based host refactor.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -56,15 +59,17 @@ func main() {
 	// kn, err := makeAndStartNode(ctx)
 
 	// Set default values
-	path := "node_data"
+	if *path == "" {
+		*path = "node_data"
+	}
 	relay := false
-	bucketSize := 20
-	ds, err := levelds.NewDatastore(path, nil)
+	bucketSize := 1
+	ds, err := levelds.NewDatastore(*path, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	kn, err := makeAndStartNode(ctx, ds, "/ip4/0.0.0.0/tcp/19264", relay, bucketSize)
+	kn, err := makeAndStartNode(ctx, ds, relay, bucketSize)
 	if err != nil {
 		panic(err)
 	}
@@ -118,12 +123,12 @@ func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
 
 var bootstrapDone int64
 
-func makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay bool, bucketSize int) (*KadNode, error) {
+func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSize int) (*KadNode, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
 
-	opts := []libp2p.Option{libp2p.ListenAddrStrings(addr), libp2p.ConnectionManager(cmgr), libp2p.Identity(priv)}
+	opts := []libp2p.Option{libp2p.ConnectionManager(cmgr), libp2p.Identity(priv)}
 	if relay {
 		opts = append(opts, libp2p.EnableRelay(circuit.OptHop))
 	}
@@ -133,10 +138,13 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay bo
 		panic(err)
 	}
 
-	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
-		"pk":   record.PublicKeyValidator{},
-		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
-	}))
+	// d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
+	// 	"pk":   record.PublicKeyValidator{},
+	// 	"ipns": ipns.Validator{KeyBook: h.Peerstore()},
+	// }))
+
+	// Use an empty validator here for simplicity
+	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
 	if err != nil {
 		panic(err)
 	}
@@ -152,6 +160,12 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, addr string, relay bo
 	}
 
 	h.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
+
+	mdns, err := discovery.NewMdnsService(ctx, h, time.Second*5, "")
+	if err != nil {
+		panic(err)
+	}
+	mdns.RegisterNotifee(kn)
 
 	return kn, nil
 }
@@ -181,7 +195,9 @@ func (kn *KadNode) Run() {
 		{"My info", kn.handleMyInfo},
 		{"DHT: Bootstrap (all seeds)", func() error { return kn.handleDHTBootstrap(dht.DefaultBootstrapPeers...) }},
 		{"DHT: Bootstrap (3 random seeds)", func() error { return kn._handleDHTBootstrap() }},
-		// {"DHT: Announce service", t.handleAnnounceService},
+		{"DHT: Find nearest peers to query", kn.handleNearestPeersToQuery},
+		{"DHT: Put value", kn.handlePutValue},
+		{"DHT: Get value", kn.handleGetValue},
 		// {"DHT: Find service providers", t.handleFindProviders},
 		// {"Network: Connect to a peer", t.handleConnect},
 		// {"Network: List connections", kn.handleListConnectedPeers},
@@ -223,27 +239,27 @@ func (kn *KadNode) handleMyInfo() error {
 	// listening on? Each transport will have a multiaddr. If you run this
 	// multiple times, you will get different port numbers. Note how we listen
 	// on all interfaces by default.
-	fmt.Println("My addresses:")
-	for _, a := range kn.h.Addrs() {
-		fmt.Printf("\t%s\n", a)
-	}
+	// fmt.Println("My addresses:")
+	// for _, a := range kn.h.Addrs() {
+	// 	fmt.Printf("\t%s\n", a)
+	// }
 
 	fmt.Println()
 	fmt.Println("My peer ID:")
 	fmt.Printf("\t%s\n", kn.h.ID())
 
-	fmt.Println()
-	fmt.Println("My identified multiaddrs:")
-	for _, a := range kn.h.Addrs() {
-		fmt.Printf("\t%s/p2p/%s\n", a, kn.h.ID())
-	}
+	// fmt.Println()
+	// fmt.Println("My identified multiaddrs:")
+	// for _, a := range kn.h.Addrs() {
+	// 	fmt.Printf("\t%s/p2p/%s\n", a, kn.h.ID())
+	// }
 
 	// What protocols are added by default?
-	fmt.Println()
-	fmt.Println("Protocols:")
-	for _, p := range kn.h.Mux().Protocols() {
-		fmt.Printf("\t%s\n", p)
-	}
+	// fmt.Println()
+	// fmt.Println("Protocols:")
+	// for _, p := range kn.h.Mux().Protocols() {
+	// 	fmt.Printf("\t%s\n", p)
+	// }
 
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
@@ -352,4 +368,86 @@ func bootstrapper() pstore.PeerInfo {
 	}
 
 	return *ai
+}
+
+func (kn *KadNode) handleNearestPeersToQuery() error {
+	ctx := context.Background()
+
+	// 1. Read the keyboard input key
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	k := scanner.Text()
+	fmt.Println("key: ", k)
+
+	scanner.Scan()
+	v := []byte(scanner.Text())
+	fmt.Println("value: ", v)
+
+	// k := "foo"
+	// v := []byte("bar")
+	// typ := dhtpb.Message_GET_VALUE
+	// rec := record.MakePutRecord(k, v)
+	// req := &dhtpb.Message{
+	// 	Type:   typ,
+	// 	Key:    []byte(str),
+	// 	Record: rec,
+	// }
+
+	// Get closest peers
+	ps, err := kn.dht.GetClosestPeers(ctx, k)
+	if err != nil {
+		panic(err)
+	}
+	p := <-ps
+	fmt.Println("Number of peers: ", len(ps))
+	fmt.Println("First peer: ", p)
+
+	// Put value
+	err = kn.dht.PutValue(ctx, k, v)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return nil
+}
+
+func (kn *KadNode) handlePutValue() error {
+	ctx := context.Background()
+
+	// Read the keyboard input key
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	k := scanner.Text()
+	fmt.Println("key: ", k)
+
+	scanner.Scan()
+	v := []byte(scanner.Text())
+	fmt.Println("value: ", v)
+
+	// Put value
+	err := kn.dht.PutValue(ctx, k, v)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return nil
+}
+
+func (kn *KadNode) handleGetValue() error {
+	ctx := context.Background()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	k := scanner.Text()
+
+	val, err := kn.dht.GetValue(ctx, k)
+	if err != nil {
+		fmt.Println(err)
+		// fmt.Println(err.StackTrace())
+		// panic(err)
+	}
+	fmt.Println(val)
+
+	return nil
 }
