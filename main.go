@@ -373,41 +373,20 @@ func bootstrapper() pstore.PeerInfo {
 func (kn *KadNode) handleNearestPeersToQuery() error {
 	ctx := context.Background()
 
-	// 1. Read the keyboard input key
-
+	fmt.Print("Key: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	k := scanner.Text()
-	fmt.Println("key: ", k)
+	fmt.Println("Input key: ", k)
 
-	scanner.Scan()
-	v := []byte(scanner.Text())
-	fmt.Println("value: ", v)
-
-	// k := "foo"
-	// v := []byte("bar")
-	// typ := dhtpb.Message_GET_VALUE
-	// rec := record.MakePutRecord(k, v)
-	// req := &dhtpb.Message{
-	// 	Type:   typ,
-	// 	Key:    []byte(str),
-	// 	Record: rec,
-	// }
-
-	// Get closest peers
 	ps, err := kn.dht.GetClosestPeers(ctx, k)
-	if err != nil {
-		panic(err)
-	}
-	p := <-ps
-	fmt.Println("Number of peers: ", len(ps))
-	fmt.Println("First peer: ", p)
-
-	// Put value
-	err = kn.dht.PutValue(ctx, k, v)
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Println("Number of peers: ", len(ps)+1)
+
+	p := <-ps
+	fmt.Println("First peer: ", p)
 
 	return nil
 }
@@ -415,18 +394,19 @@ func (kn *KadNode) handleNearestPeersToQuery() error {
 func (kn *KadNode) handlePutValue() error {
 	ctx := context.Background()
 
-	// Read the keyboard input key
 	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Key: ")
 	scanner.Scan()
 	k := scanner.Text()
-	fmt.Println("key: ", k)
+	fmt.Println("Input key: ", k)
 
+	fmt.Print("Value: ")
 	scanner.Scan()
-	v := []byte(scanner.Text())
-	fmt.Println("value: ", v)
+	v := scanner.Text()
+	vb := []byte(v)
+	fmt.Println("Input value: ", v)
 
-	// Put value
-	err := kn.dht.PutValue(ctx, k, v)
+	err := kn.dht.PutValue(ctx, k, vb)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -437,17 +417,17 @@ func (kn *KadNode) handlePutValue() error {
 func (kn *KadNode) handleGetValue() error {
 	ctx := context.Background()
 
+	fmt.Print("Key: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	k := scanner.Text()
+	fmt.Println("Input key: ", k)
 
-	val, err := kn.dht.GetValue(ctx, k)
+	vb, err := kn.dht.GetValue(ctx, k)
 	if err != nil {
 		fmt.Println(err)
-		// fmt.Println(err.StackTrace())
-		// panic(err)
 	}
-	fmt.Println(val)
+	fmt.Println("Value: ", string(vb))
 
 	return nil
 }
