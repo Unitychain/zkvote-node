@@ -3,6 +3,7 @@ module github.com/kad_node
 go 1.13
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-leveldb v0.1.0
 	github.com/ipfs/go-ipns v0.0.1

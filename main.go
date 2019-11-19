@@ -18,6 +18,7 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	levelds "github.com/ipfs/go-ds-leveldb"
+	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -29,6 +30,7 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	record "github.com/libp2p/go-libp2p-record"
 	"github.com/manifoldco/promptui"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -37,10 +39,10 @@ import (
 type KadNode struct {
 	sync.RWMutex
 
-	ctx context.Context
-	h   host.Host
-	dht *dht.IpfsDHT
-	// pubsub *pubsub.PubSub
+	ctx    context.Context
+	h      host.Host
+	dht    *dht.IpfsDHT
+	pubsub *pubsub.PubSub
 
 	mdnsPeers map[peer.ID]peer.AddrInfo
 	messages  map[string][]*pubsub.Message
@@ -70,6 +72,7 @@ func main() {
 	}
 
 	kn, err := makeAndStartNode(ctx, ds, relay, bucketSize)
+	// kn, err := _makeAndStartNode(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -99,10 +102,10 @@ func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
 		panic(err)
 	}
 
-	// ps, err := pubsub.NewGossipSub(ctx, host)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	ps, err := pubsub.NewGossipSub(ctx, host)
+	if err != nil {
+		panic(err)
+	}
 
 	kn := &KadNode{
 		ctx:       ctx,
@@ -111,7 +114,7 @@ func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		messages:  make(map[string][]*pubsub.Message),
 		streams:   make(chan network.Stream, 128),
-		// pubsub:    ps,
+		pubsub:    ps,
 	}
 
 	host.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
@@ -138,13 +141,18 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 		panic(err)
 	}
 
-	// d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
-	// 	"pk":   record.PublicKeyValidator{},
-	// 	"ipns": ipns.Validator{KeyBook: h.Peerstore()},
-	// }))
+	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
+		"pk":   record.PublicKeyValidator{},
+		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
+	}))
 
 	// Use an empty validator here for simplicity
-	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
+	// d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	ps, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		panic(err)
 	}
@@ -156,7 +164,7 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		messages:  make(map[string][]*pubsub.Message),
 		streams:   make(chan network.Stream, 128),
-		// pubsub:    ps,
+		pubsub:    ps,
 	}
 
 	h.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
@@ -198,13 +206,13 @@ func (kn *KadNode) Run() {
 		{"DHT: Find nearest peers to query", kn.handleNearestPeersToQuery},
 		{"DHT: Put value", kn.handlePutValue},
 		{"DHT: Get value", kn.handleGetValue},
+		{"Pubsub: Subscribe to topic", kn.handleSubscribeToTopic},
+		{"Pubsub: Publish a message", kn.handlePublishToTopic},
+		{"Pubsub: Print inbound messages", kn.handlePrintInboundMessages},
 		// {"DHT: Find service providers", t.handleFindProviders},
 		// {"Network: Connect to a peer", t.handleConnect},
 		// {"Network: List connections", kn.handleListConnectedPeers},
 		// {"mDNS: List local peers", kn.handleListmDNSPeers},
-		// {"Pubsub: Subscribe to topic", t.handleSubscribeToTopic},
-		// {"Pubsub: Publish a message", t.handlePublishToTopic},
-		// {"Pubsub: Print inbound messages", t.handlePrintInboundMessages},
 		// {"Protocol: Initiate chat with peer", t.handleInitiateChat},
 		// {"Protocol: Accept incoming chat", t.handleAcceptChat},
 		// {"Switch to bootstrap mode", t.handleBootstrapMode},
@@ -430,4 +438,84 @@ func (kn *KadNode) handleGetValue() error {
 	fmt.Println("Value: ", string(vb))
 
 	return nil
+}
+
+func (kn *KadNode) handleSubscribeToTopic() error {
+	p := promptui.Prompt{
+		Label: "topic name",
+	}
+	topic, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	sub, err := kn.pubsub.Subscribe(topic)
+	if err != nil {
+		return err
+	}
+
+	go pubsubHandler(kn, sub)
+
+	return nil
+}
+
+func (kn *KadNode) handlePublishToTopic() error {
+	p := promptui.Prompt{
+		Label: "topic name",
+	}
+	topic, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	p = promptui.Prompt{
+		Label: "data",
+	}
+	data, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	return kn.pubsub.Publish(topic, []byte(data))
+}
+
+func (kn *KadNode) handlePrintInboundMessages() error {
+	kn.RLock()
+	topics := make([]string, 0, len(kn.messages))
+	for k := range kn.messages {
+		topics = append(topics, k)
+	}
+	kn.RUnlock()
+
+	s := promptui.Select{
+		Label: "topic",
+		Items: topics,
+	}
+
+	_, topic, err := s.Run()
+	if err != nil {
+		return err
+	}
+
+	kn.Lock()
+	defer kn.Unlock()
+	for _, m := range kn.messages[topic] {
+		fmt.Printf("<<< from: %s >>>: %s\n", m.GetFrom(), string(m.GetData()))
+	}
+	kn.messages[topic] = nil
+	return nil
+}
+
+func pubsubHandler(kn *KadNode, sub *pubsub.Subscription) {
+	for {
+		m, err := sub.Next(kn.ctx)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		kn.Lock()
+		msgs := kn.messages[sub.Topic()]
+		kn.messages[sub.Topic()] = append(msgs, m)
+		kn.Unlock()
+	}
 }
