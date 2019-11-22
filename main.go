@@ -14,7 +14,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
 
-	"github.com/libp2p/go-libp2p/p2p/discovery"
+	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
+	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	ds "github.com/ipfs/go-datastore"
 	levelds "github.com/ipfs/go-ds-leveldb"
@@ -23,6 +24,7 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
@@ -39,10 +41,11 @@ import (
 type KadNode struct {
 	sync.RWMutex
 
-	ctx    context.Context
-	h      host.Host
-	dht    *dht.IpfsDHT
-	pubsub *pubsub.PubSub
+	ctx       context.Context
+	h         host.Host
+	dht       *dht.IpfsDHT
+	discovery discovery.Discovery
+	pubsub    *pubsub.PubSub
 
 	mdnsPeers map[peer.ID]peer.AddrInfo
 	messages  map[string][]*pubsub.Message
@@ -97,7 +100,7 @@ func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
 		panic(err)
 	}
 
-	mdns, err := discovery.NewMdnsService(ctx, host, time.Second*5, "")
+	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
 		panic(err)
 	}
@@ -141,16 +144,20 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 		panic(err)
 	}
 
-	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
+	d1, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
 		"pk":   record.PublicKeyValidator{},
 		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
 	}))
+	_ = d1
 
 	// Use an empty validator here for simplicity
-	// d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
-	// if err != nil {
-	// 	panic(err)
-	// }
+	d2, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
+	if err != nil {
+		panic(err)
+	}
+
+	// Discovery
+	rd := routingDiscovery.NewRoutingDiscovery(d2)
 
 	ps, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
@@ -160,7 +167,8 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 	kn := &KadNode{
 		ctx:       ctx,
 		h:         h,
-		dht:       d,
+		dht:       d2,
+		discovery: rd,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		messages:  make(map[string][]*pubsub.Message),
 		streams:   make(chan network.Stream, 128),
@@ -169,7 +177,7 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 
 	h.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
 
-	mdns, err := discovery.NewMdnsService(ctx, h, time.Second*5, "")
+	mdns, err := msdnDiscovery.NewMdnsService(ctx, h, time.Second*5, "")
 	if err != nil {
 		panic(err)
 	}
@@ -206,10 +214,11 @@ func (kn *KadNode) Run() {
 		{"DHT: Find nearest peers to query", kn.handleNearestPeersToQuery},
 		{"DHT: Put value", kn.handlePutValue},
 		{"DHT: Get value", kn.handleGetValue},
+		{"Discovery: Advertise topic", kn.handleAdvertise},
+		{"Discovery: Find topic providers", kn.handleFindProviders},
 		{"Pubsub: Subscribe to topic", kn.handleSubscribeToTopic},
 		{"Pubsub: Publish a message", kn.handlePublishToTopic},
 		{"Pubsub: Print inbound messages", kn.handlePrintInboundMessages},
-		// {"DHT: Find service providers", t.handleFindProviders},
 		// {"Network: Connect to a peer", t.handleConnect},
 		// {"Network: List connections", kn.handleListConnectedPeers},
 		// {"mDNS: List local peers", kn.handleListmDNSPeers},
@@ -272,9 +281,11 @@ func (kn *KadNode) handleMyInfo() error {
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
 	fmt.Println("Peers in peerstore:")
-	// for _, p := range t.h.Peerstore().PeersWithAddrs() {
-	// 	fmt.Printf("\t%s\n", p)
-	// }
+	for _, p := range kn.h.Peerstore().PeersWithAddrs() {
+		fmt.Printf("\t%s\n", p)
+		addr := kn.h.Peerstore().PeerInfo(p)
+		fmt.Printf("\t%s\n", addr)
+	}
 	fmt.Println(len(kn.h.Peerstore().PeersWithAddrs()))
 
 	// DHT routing table
@@ -518,4 +529,40 @@ func pubsubHandler(kn *KadNode, sub *pubsub.Subscription) {
 		kn.messages[sub.Topic()] = append(msgs, m)
 		kn.Unlock()
 	}
+}
+
+func (kn *KadNode) handleAdvertise() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Key: ")
+	scanner.Scan()
+	k := scanner.Text()
+	fmt.Println("Input key: ", k)
+
+	_, err := kn.discovery.Advertise(ctx, k, routingDiscovery.TTL(10*time.Minute))
+	return err
+}
+
+func (kn *KadNode) handleFindProviders() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Key: ")
+	scanner.Scan()
+	k := scanner.Text()
+	fmt.Println("Input key: ", k)
+
+	peers, err := kn.discovery.FindPeers(ctx, k)
+	if err != nil {
+		return err
+	}
+
+	for p := range peers {
+		fmt.Println("found peer", p)
+		kn.h.Peerstore().AddAddrs(p.ID, p.Addrs, 24*time.Hour)
+	}
+	return err
 }
