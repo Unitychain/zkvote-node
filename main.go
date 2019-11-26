@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,6 +51,8 @@ type KadNode struct {
 	mdnsPeers map[peer.ID]peer.AddrInfo
 	messages  map[string][]*pubsub.Message
 	streams   chan network.Stream
+	providers map[peer.ID]string
+	allTopics map[string]string
 }
 
 func main() {
@@ -159,6 +162,7 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 	// Discovery
 	rd := routingDiscovery.NewRoutingDiscovery(d2)
 
+	// Pubsub
 	ps, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		panic(err)
@@ -173,9 +177,14 @@ func makeAndStartNode(ctx context.Context, ds ds.Batching, relay bool, bucketSiz
 		messages:  make(map[string][]*pubsub.Message),
 		streams:   make(chan network.Stream, 128),
 		pubsub:    ps,
+		providers: make(map[peer.ID]string),
+		allTopics: make(map[string]string),
 	}
 
 	h.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
+
+	// Topic Query Handler
+	h.SetStreamHandler("/topicquery/1.0.0", kn.handleTopicQuery)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, h, time.Second*5, "")
 	if err != nil {
@@ -202,6 +211,21 @@ func (kn *KadNode) HandlePeerFound(pi peer.AddrInfo) {
 	}
 }
 
+// handleTopicQuery
+func (kn *KadNode) handleTopicQuery(s network.Stream) {
+	fmt.Printf("*** Got a topic query from %s! ***\n", s.Conn().RemotePeer())
+	// List subscribed topics
+	topics := kn.pubsub.GetTopics()
+	// Make message
+	m := strings.Join(topics, ",")
+
+	fmt.Println(m)
+	// Writer
+	writer := bufio.NewWriter(s)
+	writer.WriteString(m + "\n")
+	writer.Flush()
+}
+
 // Run ...
 func (kn *KadNode) Run() {
 	commands := []struct {
@@ -214,17 +238,13 @@ func (kn *KadNode) Run() {
 		{"DHT: Find nearest peers to query", kn.handleNearestPeersToQuery},
 		{"DHT: Put value", kn.handlePutValue},
 		{"DHT: Get value", kn.handleGetValue},
-		{"Discovery: Advertise topic", kn.handleAdvertise},
-		{"Discovery: Find topic providers", kn.handleFindProviders},
+		{"Discovery: Advertise topic", kn.handleTopicAdvertise},
+		{"Discovery: Find topic providers", kn.handleFindTopicProviders},
 		{"Pubsub: Subscribe to topic", kn.handleSubscribeToTopic},
 		{"Pubsub: Publish a message", kn.handlePublishToTopic},
 		{"Pubsub: Print inbound messages", kn.handlePrintInboundMessages},
-		// {"Network: Connect to a peer", t.handleConnect},
-		// {"Network: List connections", kn.handleListConnectedPeers},
-		// {"mDNS: List local peers", kn.handleListmDNSPeers},
-		// {"Protocol: Initiate chat with peer", t.handleInitiateChat},
-		// {"Protocol: Accept incoming chat", t.handleAcceptChat},
-		// {"Switch to bootstrap mode", t.handleBootstrapMode},
+		{"Pubsub: Collect all topics", kn.handleCollectAllTopics},
+		{"Pubsub: List subscribed topics", kn.handleListTopics},
 	}
 
 	var str []string
@@ -531,31 +551,23 @@ func pubsubHandler(kn *KadNode, sub *pubsub.Subscription) {
 	}
 }
 
-func (kn *KadNode) handleAdvertise() error {
+func (kn *KadNode) handleTopicAdvertise() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Key: ")
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	_, err := kn.discovery.Advertise(ctx, k, routingDiscovery.TTL(10*time.Minute))
-	return err
+	// Before advertising, make sure the host has a subscription
+	if len(kn.pubsub.GetTopics()) != 0 {
+		_, err := kn.discovery.Advertise(ctx, "topic", routingDiscovery.TTL(10*time.Minute))
+		return err
+	}
+	return fmt.Errorf("kad node hasn't subscribed to any topic")
 }
 
-func (kn *KadNode) handleFindProviders() error {
+func (kn *KadNode) handleFindTopicProviders() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Key: ")
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	peers, err := kn.discovery.FindPeers(ctx, k)
+	peers, err := kn.discovery.FindPeers(ctx, "topic")
 	if err != nil {
 		return err
 	}
@@ -563,6 +575,46 @@ func (kn *KadNode) handleFindProviders() error {
 	for p := range peers {
 		fmt.Println("found peer", p)
 		kn.h.Peerstore().AddAddrs(p.ID, p.Addrs, 24*time.Hour)
+		kn.providers[p.ID] = ""
 	}
+
+	fmt.Println("Topic Providers: ")
+	fmt.Println(kn.providers)
 	return err
+}
+
+func (kn *KadNode) handleCollectAllTopics() error {
+	// Dial to every topic prividers
+	for p := range kn.providers {
+		// Ignore self ID
+		if p == kn.h.ID() {
+			continue
+		}
+		s, err := kn.h.NewStream(context.Background(), p, "/topicquery/1.0.0")
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		// Reader
+		reader := bufio.NewReader(s)
+		str, _ := reader.ReadString('\n')
+		// Remove \n
+		str = strings.TrimSuffix(str, "\n")
+
+		// Store all topics
+		for _, s := range strings.Split(str, ",") {
+			kn.allTopics[s] = ""
+		}
+		fmt.Println(kn.allTopics)
+	}
+
+	return nil
+}
+
+// handleTopicQuery
+func (kn *KadNode) handleListTopics() error {
+	topics := kn.pubsub.GetTopics()
+	fmt.Println(topics)
+
+	return nil
 }
