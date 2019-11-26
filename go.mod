@@ -1,4 +1,4 @@
-module github.com/kad_node
+module github.com/unitychain/kad_node
 
 go 1.13
 
