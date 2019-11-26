@@ -28,7 +28,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -48,11 +47,12 @@ type KadNode struct {
 	discovery discovery.Discovery
 	pubsub    *pubsub.PubSub
 
-	mdnsPeers map[peer.ID]peer.AddrInfo
-	messages  map[string][]*pubsub.Message
-	streams   chan network.Stream
-	providers map[peer.ID]string
-	allTopics map[string]string
+	mdnsPeers       map[peer.ID]peer.AddrInfo
+	messages        map[string][]*pubsub.Message
+	streams         chan network.Stream
+	providers       map[peer.ID]string
+	allTopics       map[string]string
+	createdSubjects map[string]string
 }
 
 func main() {
@@ -63,8 +63,6 @@ func main() {
 	// lifecycles. Talk about the service-based host refactor.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// kn, err := makeAndStartNode(ctx)
 
 	// Set default values
 	if *path == "" {
@@ -78,56 +76,11 @@ func main() {
 	}
 
 	kn, err := makeAndStartNode(ctx, ds, relay, bucketSize)
-	// kn, err := _makeAndStartNode(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	kn.Run()
-}
-
-func _makeAndStartNode(ctx context.Context) (*KadNode, error) {
-	var kaddht *dht.IpfsDHT
-	newDHT := func(h host.Host) (routing.PeerRouting, error) {
-		var err error
-		kaddht, err = dht.New(ctx, h)
-		return kaddht, err
-	}
-
-	// 0a. Let's build a new libp2p host. The New constructor uses functional
-	// parameters. You don't need to provide any parameters. libp2p comes with
-	// sane defaults OOTB, but in order to stay slim, we don't attach a routing
-	// implementation by default. Let's do that.
-	host, err := libp2p.New(ctx, libp2p.Routing(newDHT))
-	if err != nil {
-		panic(err)
-	}
-
-	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
-	if err != nil {
-		panic(err)
-	}
-
-	ps, err := pubsub.NewGossipSub(ctx, host)
-	if err != nil {
-		panic(err)
-	}
-
-	kn := &KadNode{
-		ctx:       ctx,
-		h:         host,
-		dht:       kaddht,
-		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
-		messages:  make(map[string][]*pubsub.Message),
-		streams:   make(chan network.Stream, 128),
-		pubsub:    ps,
-	}
-
-	host.SetStreamHandler(protocol.ID("/taipei/chat/2019"), kn.handler)
-
-	mdns.RegisterNotifee(kn)
-
-	return kn, nil
 }
 
 var bootstrapDone int64
@@ -211,7 +164,6 @@ func (kn *KadNode) HandlePeerFound(pi peer.AddrInfo) {
 	}
 }
 
-// handleTopicQuery
 func (kn *KadNode) handleTopicQuery(s network.Stream) {
 	fmt.Printf("*** Got a topic query from %s! ***\n", s.Conn().RemotePeer())
 	// List subscribed topics
@@ -557,7 +509,7 @@ func (kn *KadNode) handleTopicAdvertise() error {
 
 	// Before advertising, make sure the host has a subscription
 	if len(kn.pubsub.GetTopics()) != 0 {
-		_, err := kn.discovery.Advertise(ctx, "topic", routingDiscovery.TTL(10*time.Minute))
+		_, err := kn.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 		return err
 	}
 	return fmt.Errorf("kad node hasn't subscribed to any topic")
@@ -567,7 +519,7 @@ func (kn *KadNode) handleFindTopicProviders() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	peers, err := kn.discovery.FindPeers(ctx, "topic")
+	peers, err := kn.discovery.FindPeers(ctx, "subjects")
 	if err != nil {
 		return err
 	}
@@ -578,7 +530,7 @@ func (kn *KadNode) handleFindTopicProviders() error {
 		kn.providers[p.ID] = ""
 	}
 
-	fmt.Println("Topic Providers: ")
+	fmt.Println("Subject creators: ")
 	fmt.Println(kn.providers)
 	return err
 }
