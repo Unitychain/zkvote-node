@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -114,10 +113,8 @@ func NewNode(ctx context.Context, ds ds.Batching, relay bool, bucketSize int, po
 		allTopics: make(map[string]string),
 	}
 
-	host.SetStreamHandler(protocol.ID("/taipei/chat/2019"), node.handler)
-
-	// Topic Query Handler
-	host.SetStreamHandler("/topicquery/1.0.0", node.handleTopicQuery)
+	done := make(chan bool, 1)
+	node.SubjectProtocol = NewSubjectProtocol(node, done)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -142,20 +139,6 @@ func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
 	if err := node.Connect(node.ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)
 	}
-}
-
-func (node *Node) handleTopicQuery(s network.Stream) {
-	fmt.Printf("*** Got a topic query from %s! ***\n", s.Conn().RemotePeer())
-	// List subscribed topics
-	topics := node.pubsub.GetTopics()
-	// Make message
-	m := strings.Join(topics, "")
-
-	fmt.Println(m)
-	// Writer
-	writer := bufio.NewWriter(s)
-	writer.WriteString(m + "\n")
-	writer.Flush()
 }
 
 // Info ...
@@ -191,8 +174,6 @@ func (node *Node) Info() error {
 	fmt.Println("Peers in peerstore:")
 	for _, p := range node.Peerstore().PeersWithAddrs() {
 		fmt.Printf("\t%s\n", p)
-		addr := node.Peerstore().PeerInfo(p)
-		fmt.Printf("\t%s\n", addr)
 	}
 	fmt.Println(len(node.Peerstore().PeersWithAddrs()))
 
@@ -203,6 +184,10 @@ func (node *Node) Info() error {
 	// Connections
 	fmt.Println("Connections:")
 	fmt.Println(len(node.Network().Conns()))
+
+	// All created sucjects
+	fmt.Println("All created subjects:")
+	fmt.Println(node.allTopics)
 
 	return nil
 }
@@ -434,28 +419,12 @@ func (node *Node) FindTopicProviders() error {
 
 // CollectAllTopics ...
 func (node *Node) CollectAllTopics() error {
-	// Dial to every topic prividers
 	for p := range node.providers {
 		// Ignore self ID
 		if p == node.ID() {
 			continue
 		}
-		s, err := node.NewStream(context.Background(), p, "/topicquery/1.0.0")
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		// Reader
-		reader := bufio.NewReader(s)
-		str, _ := reader.ReadString('\n')
-		// Remove \n
-		str = strings.TrimSuffix(str, "\n")
-
-		// Store all topics
-		for _, s := range strings.Split(str, ",") {
-			node.allTopics[s] = ""
-		}
-		fmt.Println(node.allTopics)
+		node.GetCreatedSubjects(p)
 	}
 
 	return nil
