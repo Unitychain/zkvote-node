@@ -10,7 +10,6 @@ import (
 	levelds "github.com/ipfs/go-ds-leveldb"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/manifoldco/promptui"
-	"github.com/multiformats/go-multiaddr"
 )
 
 func main() {
@@ -51,7 +50,7 @@ func (node *Node) Run() {
 		exec func() error
 	}{
 		{"My info", node.handleMyInfo},
-		{"DHT: Bootstrap (all seeds)", func() error { return node.handleDHTBootstrap(dht.DefaultBootstrapPeers...) }},
+		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
 		{"DHT: Find nearest peers to query", node.handleNearestPeersToQuery},
 		{"DHT: Put value", node.handlePutValue},
 		{"DHT: Get value", node.handleGetValue},
@@ -92,8 +91,8 @@ func (node *Node) handleMyInfo() error {
 	return node.Info()
 }
 
-func (node *Node) handleDHTBootstrap(seeds ...multiaddr.Multiaddr) error {
-	return node.DHTBootstrap(seeds...)
+func (node *Node) handleDHTBootstrap() error {
+	return node.DHTBootstrap(dht.DefaultBootstrapPeers...)
 }
 
 func (node *Node) handleNearestPeersToQuery() error {
@@ -125,23 +124,7 @@ func (node *Node) handleTopicAdvertise() error {
 }
 
 func (node *Node) handleFindTopicProviders() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	peers, err := node.discovery.FindPeers(ctx, "subjects")
-	if err != nil {
-		return err
-	}
-
-	for p := range peers {
-		fmt.Println("found peer", p)
-		node.Peerstore().AddAddrs(p.ID, p.Addrs, 24*time.Hour)
-		node.providers[p.ID] = ""
-	}
-
-	fmt.Println("Subject creators: ")
-	fmt.Println(node.providers)
-	return err
+	return node.FindTopicProviders()
 }
 
 func (node *Node) handleCollectAllTopics() error {
