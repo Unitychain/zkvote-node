@@ -19,16 +19,16 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	node     *Node                              // local host
+	node     *Node
 	requests map[string]*subject.SubjectRequest // used to access request data from response handlers
 	done     chan bool                          // only for demo purposes to stop main from terminating
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(kn *Node, done chan bool) *SubjectProtocol {
-	sp := &SubjectProtocol{node: kn, requests: make(map[string]*subject.SubjectRequest), done: done}
-	kn.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
-	kn.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
+func NewSubjectProtocol(node *Node, done chan bool) *SubjectProtocol {
+	sp := &SubjectProtocol{node: node, requests: make(map[string]*subject.SubjectRequest), done: done}
+	node.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
+	node.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
 	return sp
 }
 
@@ -119,7 +119,7 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 
 	// Store all topics
 	for _, sub := range data.Subjects {
-		sp.node.allTopics[sub.Title] = sub.Description
+		sp.node.collectedSubjects[sub.Title] = sub.Description
 	}
 
 	// locate request data and remove it if found
