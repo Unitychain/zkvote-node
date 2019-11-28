@@ -18,13 +18,12 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
+
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -41,21 +40,14 @@ const clientVersion = "zkvote/0.0.1"
 // Node ...
 type Node struct {
 	sync.RWMutex
-
 	host.Host
+	*Collector
 	ctx       context.Context
 	dht       *dht.IpfsDHT
-	discovery discovery.Discovery
 	pubsub    *pubsub.PubSub
-
-	mdnsPeers       map[peer.ID]peer.AddrInfo
-	messages        map[string][]*pubsub.Message
-	streams         chan network.Stream
-	providers       map[peer.ID]string
-	allTopics       map[string]string
-	createdSubjects map[string]string
-
-	*SubjectProtocol // subject protocol impl
+	mdnsPeers map[peer.ID]peer.AddrInfo
+	messages  map[string][]*pubsub.Message
+	streams   chan network.Stream
 }
 
 // NewNode create a new node with its implemented protocols
@@ -91,9 +83,6 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}))
 	_ = d2
 
-	// Discovery
-	rd := routingDiscovery.NewRoutingDiscovery(d1)
-
 	// Pubsub
 	ps, err := pubsub.NewGossipSub(ctx, host)
 	if err != nil {
@@ -103,18 +92,14 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	node := &Node{
 		ctx:       ctx,
 		Host:      host,
-		dht:       d2,
-		discovery: rd,
+		dht:       d1,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		messages:  make(map[string][]*pubsub.Message),
 		streams:   make(chan network.Stream, 128),
 		pubsub:    ps,
-		providers: make(map[peer.ID]string),
-		allTopics: make(map[string]string),
 	}
 
-	done := make(chan bool, 1)
-	node.SubjectProtocol = NewSubjectProtocol(node, done)
+	node.Collector, err = NewCollector(node)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -180,9 +165,9 @@ func (node *Node) Info() error {
 	fmt.Println("Connections:")
 	fmt.Println(len(node.Network().Conns()))
 
-	// All created sucjects
-	fmt.Println("All created subjects:")
-	fmt.Println(node.allTopics)
+	// All collected sucjects
+	fmt.Println("All collected subjects:")
+	fmt.Println(node.collectedSubjects)
 
 	return nil
 }
@@ -378,61 +363,6 @@ func pubsubHandler(node *Node, sub *pubsub.Subscription) {
 	}
 }
 
-// TopicAdvertise ...
-func (node *Node) TopicAdvertise() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Before advertising, make sure the host has a subscription
-	if len(node.pubsub.GetTopics()) != 0 {
-		_, err := node.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
-		return err
-	}
-	return fmt.Errorf("zknode hasn't subscribed to any topic")
-}
-
-// FindTopicProviders ...
-func (node *Node) FindTopicProviders() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	peers, err := node.discovery.FindPeers(ctx, "subjects")
-	if err != nil {
-		return err
-	}
-
-	for p := range peers {
-		fmt.Println("found peer", p)
-		node.Peerstore().AddAddrs(p.ID, p.Addrs, 24*time.Hour)
-		node.providers[p.ID] = ""
-	}
-
-	fmt.Println("Subject creators: ")
-	fmt.Println(node.providers)
-	return err
-}
-
-// CollectAllTopics ...
-func (node *Node) CollectAllTopics() error {
-	for p := range node.providers {
-		// Ignore self ID
-		if p == node.ID() {
-			continue
-		}
-		node.GetCreatedSubjects(p)
-	}
-
-	return nil
-}
-
-// ListTopics ...
-func (node *Node) ListTopics() error {
-	topics := node.pubsub.GetTopics()
-	fmt.Println(topics)
-
-	return nil
-}
-
 // NewMessageData helper method - generate message data shared between all node's p2p protocols
 // messageId: unique for requests, copied from request for responses
 func (node *Node) NewMessageData(messageID string, gossip bool) *subject.MessageData {
@@ -571,13 +501,13 @@ func (node *Node) Run() {
 		{"DHT: Find nearest peers to query", node.handleNearestPeersToQuery},
 		{"DHT: Put value", node.handlePutValue},
 		{"DHT: Get value", node.handleGetValue},
-		{"Discovery: Advertise topic", node.handleTopicAdvertise},
-		{"Discovery: Find topic providers", node.handleFindTopicProviders},
+		{"Discovery: Advertise topic", node.handleAdvertise},
+		{"Discovery: Find topic providers", node.handleFindPeers},
 		{"Pubsub: Subscribe to topic", node.handleSubscribeToTopic},
 		{"Pubsub: Publish a message", node.handlePublishToTopic},
 		{"Pubsub: Print inbound messages", node.handlePrintInboundMessages},
-		{"Pubsub: Collect all topics", node.handleCollectAllTopics},
-		{"Pubsub: List subscribed topics", node.handleListTopics},
+		{"Pubsub: Collect all topics", node.handleCollect},
+		{"Pubsub: List subscribed topics", node.handleList},
 	}
 
 	var str []string
@@ -636,18 +566,18 @@ func (node *Node) handlePrintInboundMessages() error {
 	return node.PrintInboundMessages()
 }
 
-func (node *Node) handleTopicAdvertise() error {
-	return node.TopicAdvertise()
+func (node *Node) handleAdvertise() error {
+	return node.Advertise()
 }
 
-func (node *Node) handleFindTopicProviders() error {
-	return node.FindTopicProviders()
+func (node *Node) handleFindPeers() error {
+	return node.FindPeers()
 }
 
-func (node *Node) handleCollectAllTopics() error {
-	return node.CollectAllTopics()
+func (node *Node) handleCollect() error {
+	return node.Collect()
 }
 
-func (node *Node) handleListTopics() error {
-	return node.ListTopics()
+func (node *Node) handleList() error {
+	return node.List()
 }
