@@ -1,4 +1,4 @@
-package main
+package zkvote
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
-	subject "github.com/unitychain/kad_node/pb"
+	subject "github.com/unitychain/zkvote-node/zkvote/pb"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

@@ -1,4 +1,4 @@
-package main
+package zkvote
 
 import (
 	"bufio"
@@ -12,7 +12,7 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	proto "github.com/gogo/protobuf/proto"
-	ds "github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore"
 	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	circuit "github.com/libp2p/go-libp2p-circuit"
@@ -32,11 +32,11 @@ import (
 	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
-	subject "github.com/unitychain/kad_node/pb"
+	subject "github.com/unitychain/zkvote-node/zkvote/pb"
 )
 
 // node client version
-const clientVersion = "kad_node/0.0.1"
+const clientVersion = "zkvote/0.0.1"
 
 // Node ...
 type Node struct {
@@ -59,7 +59,7 @@ type Node struct {
 }
 
 // NewNode create a new node with its implemented protocols
-func NewNode(ctx context.Context, ds ds.Batching, relay bool, bucketSize int, port int) (*Node, error) {
+func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int, port int) (*Node, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	// Ignoring most errors for brevity
@@ -79,20 +79,20 @@ func NewNode(ctx context.Context, ds ds.Batching, relay bool, bucketSize int, po
 		panic(err)
 	}
 
-	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
-		"pk":   record.PublicKeyValidator{},
-		"ipns": ipns.Validator{KeyBook: host.Peerstore()},
-	}))
-	_ = d1
-
 	// Use an empty validator here for simplicity
-	d2, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(KNValidator{}))
+	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(NodeValidator{}))
 	if err != nil {
 		panic(err)
 	}
 
+	d2, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
+		"pk":   record.PublicKeyValidator{},
+		"ipns": ipns.Validator{KeyBook: host.Peerstore()},
+	}))
+	_ = d2
+
 	// Discovery
-	rd := routingDiscovery.NewRoutingDiscovery(d2)
+	rd := routingDiscovery.NewRoutingDiscovery(d1)
 
 	// Pubsub
 	ps, err := pubsub.NewGossipSub(ctx, host)
@@ -123,11 +123,6 @@ func NewNode(ctx context.Context, ds ds.Batching, relay bool, bucketSize int, po
 	mdns.RegisterNotifee(node)
 
 	return node, nil
-}
-
-func (node *Node) handler(s network.Stream) {
-	fmt.Printf("*** Got a new chat stream from %s! ***\n", s.Conn().RemotePeer())
-	node.streams <- s
 }
 
 // HandlePeerFound msdn handler
@@ -393,7 +388,7 @@ func (node *Node) TopicAdvertise() error {
 		_, err := node.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 		return err
 	}
-	return fmt.Errorf("kad node hasn't subscribed to any topic")
+	return fmt.Errorf("zknode hasn't subscribed to any topic")
 }
 
 // FindTopicProviders ...
@@ -564,3 +559,95 @@ func (node *Node) sendProtoMessage(id peer.ID, p protocol.ID, data proto.Message
 
 // 	return res
 // }
+
+// Run ...
+func (node *Node) Run() {
+	commands := []struct {
+		name string
+		exec func() error
+	}{
+		{"My info", node.handleMyInfo},
+		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
+		{"DHT: Find nearest peers to query", node.handleNearestPeersToQuery},
+		{"DHT: Put value", node.handlePutValue},
+		{"DHT: Get value", node.handleGetValue},
+		{"Discovery: Advertise topic", node.handleTopicAdvertise},
+		{"Discovery: Find topic providers", node.handleFindTopicProviders},
+		{"Pubsub: Subscribe to topic", node.handleSubscribeToTopic},
+		{"Pubsub: Publish a message", node.handlePublishToTopic},
+		{"Pubsub: Print inbound messages", node.handlePrintInboundMessages},
+		{"Pubsub: Collect all topics", node.handleCollectAllTopics},
+		{"Pubsub: List subscribed topics", node.handleListTopics},
+	}
+
+	var str []string
+	for _, c := range commands {
+		str = append(str, c.name)
+	}
+
+	for {
+		sel := promptui.Select{
+			Label: "What do you want to do?",
+			Items: str,
+			Size:  1000,
+		}
+
+		fmt.Println()
+		i, _, err := sel.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		if err := commands[i].exec(); err != nil {
+			fmt.Printf("command failed: %s\n", err)
+		}
+	}
+}
+
+func (node *Node) handleMyInfo() error {
+	return node.Info()
+}
+
+func (node *Node) handleDHTBootstrap() error {
+	return node.DHTBootstrap(dht.DefaultBootstrapPeers...)
+}
+
+func (node *Node) handleNearestPeersToQuery() error {
+	return node.NearestPeersToQuery()
+}
+
+func (node *Node) handlePutValue() error {
+	return node.PutValue()
+}
+
+func (node *Node) handleGetValue() error {
+	return node.GetValue()
+}
+
+func (node *Node) handleSubscribeToTopic() error {
+	return node.SubscribeToTopic()
+}
+
+func (node *Node) handlePublishToTopic() error {
+	return node.PublishToTopic()
+}
+
+func (node *Node) handlePrintInboundMessages() error {
+	return node.PrintInboundMessages()
+}
+
+func (node *Node) handleTopicAdvertise() error {
+	return node.TopicAdvertise()
+}
+
+func (node *Node) handleFindTopicProviders() error {
+	return node.FindTopicProviders()
+}
+
+func (node *Node) handleCollectAllTopics() error {
+	return node.CollectAllTopics()
+}
+
+func (node *Node) handleListTopics() error {
+	return node.ListTopics()
+}

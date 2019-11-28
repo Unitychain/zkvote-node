@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package protocols.p2p;
+package protocols.subject;
 
 //// subject protocol
 

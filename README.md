@@ -1,9 +1,9 @@
-# kad_node: Using ZK-SNARK to Implement Decentralized Anonymous Voting on DHT
-`kad_node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
+# zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on DHT
+`zkvote-node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
 
 ## Flow
 - Onboarding flow:
-    - Run `kad_node`. The node will connect to other peers in the network.
+    - Run `zkvote-node`. The node will connect to other peers in the network.
         - Use defferent libp2p protocol
     - Nodes form two networks: DHT and pub/sub
     - The local running node provides a web UI for the user to register and submit proof.
