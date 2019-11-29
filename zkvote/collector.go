@@ -39,21 +39,23 @@ func NewCollector(node *Node) (*Collector, error) {
 	return collector, nil
 }
 
-// Advertise ...
-func (collector *Collector) Advertise() error {
+// Announce ...
+func (collector *Collector) Announce() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Before advertising, make sure the host has a subscription
 	if len(collector.pubsub.GetTopics()) != 0 {
+		fmt.Println("Announce")
+
 		_, err := collector.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 		return err
 	}
 	return fmt.Errorf("zknode hasn't subscribed to any topic")
 }
 
-// FindPeers ...
-func (collector *Collector) FindPeers() error {
+// FindProposers ...
+func (collector *Collector) FindProposers() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -42,11 +42,11 @@ type Node struct {
 	sync.RWMutex
 	host.Host
 	*Collector
+	*Voter
 	ctx       context.Context
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
 	mdnsPeers map[peer.ID]peer.AddrInfo
-	messages  map[string][]*pubsub.Message
 	streams   chan network.Stream
 }
 
@@ -93,13 +93,13 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		ctx:       ctx,
 		Host:      host,
 		dht:       d1,
-		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
-		messages:  make(map[string][]*pubsub.Message),
-		streams:   make(chan network.Stream, 128),
 		pubsub:    ps,
+		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
+		streams:   make(chan network.Stream, 128),
 	}
 
 	node.Collector, err = NewCollector(node)
+	node.Voter, err = NewVoter(node)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -280,89 +280,6 @@ func (node *Node) GetValue() error {
 	return nil
 }
 
-// SubscribeToTopic ...
-func (node *Node) SubscribeToTopic() error {
-	p := promptui.Prompt{
-		Label: "topic name",
-	}
-	topic, err := p.Run()
-	if err != nil {
-		return err
-	}
-
-	sub, err := node.pubsub.Subscribe(topic)
-	if err != nil {
-		return err
-	}
-
-	go pubsubHandler(node, sub)
-
-	return nil
-}
-
-// PublishToTopic ...
-func (node *Node) PublishToTopic() error {
-	p := promptui.Prompt{
-		Label: "topic name",
-	}
-	topic, err := p.Run()
-	if err != nil {
-		return err
-	}
-
-	p = promptui.Prompt{
-		Label: "data",
-	}
-	data, err := p.Run()
-	if err != nil {
-		return err
-	}
-
-	return node.pubsub.Publish(topic, []byte(data))
-}
-
-// PrintInboundMessages ...
-func (node *Node) PrintInboundMessages() error {
-	node.RLock()
-	topics := make([]string, 0, len(node.messages))
-	for k := range node.messages {
-		topics = append(topics, k)
-	}
-	node.RUnlock()
-
-	s := promptui.Select{
-		Label: "topic",
-		Items: topics,
-	}
-
-	_, topic, err := s.Run()
-	if err != nil {
-		return err
-	}
-
-	node.Lock()
-	defer node.Unlock()
-	for _, m := range node.messages[topic] {
-		fmt.Printf("<<< from: %s >>>: %s\n", m.GetFrom(), string(m.GetData()))
-	}
-	node.messages[topic] = nil
-	return nil
-}
-
-func pubsubHandler(node *Node, sub *pubsub.Subscription) {
-	for {
-		m, err := sub.Next(node.ctx)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		node.Lock()
-		msgs := node.messages[sub.Topic()]
-		node.messages[sub.Topic()] = append(msgs, m)
-		node.Unlock()
-	}
-}
-
 // NewMessageData helper method - generate message data shared between all node's p2p protocols
 // messageId: unique for requests, copied from request for responses
 func (node *Node) NewMessageData(messageID string, gossip bool) *subject.MessageData {
@@ -501,13 +418,14 @@ func (node *Node) Run() {
 		{"DHT: Find nearest peers to query", node.handleNearestPeersToQuery},
 		{"DHT: Put value", node.handlePutValue},
 		{"DHT: Get value", node.handleGetValue},
-		{"Discovery: Advertise topic", node.handleAdvertise},
-		{"Discovery: Find topic providers", node.handleFindPeers},
-		{"Pubsub: Subscribe to topic", node.handleSubscribeToTopic},
-		{"Pubsub: Publish a message", node.handlePublishToTopic},
-		{"Pubsub: Print inbound messages", node.handlePrintInboundMessages},
-		{"Pubsub: Collect all topics", node.handleCollect},
-		{"Pubsub: List subscribed topics", node.handleList},
+		{"Voter: Propose a subject", node.handlePropose},
+		{"Voter: Subscribe to topic", node.handleJoin},
+		{"Voter: Publish a message", node.handleBroadcast},
+		{"Voter: Print inbound messages", node.handlePrintInboundMessages},
+		{"Collector: Advertise topic", node.handleAnnounce},
+		{"Collector: Find topic providers", node.handleFindProposers},
+		{"Collector: Collect all topics", node.handleCollect},
+		{"Collector: List subscribed topics", node.handleList},
 	}
 
 	var str []string
@@ -554,24 +472,28 @@ func (node *Node) handleGetValue() error {
 	return node.GetValue()
 }
 
-func (node *Node) handleSubscribeToTopic() error {
-	return node.SubscribeToTopic()
+func (node *Node) handleJoin() error {
+	return node.Join()
 }
 
-func (node *Node) handlePublishToTopic() error {
-	return node.PublishToTopic()
+func (node *Node) handlePropose() error {
+	return node.Propose()
+}
+
+func (node *Node) handleBroadcast() error {
+	return node.Broadcast()
 }
 
 func (node *Node) handlePrintInboundMessages() error {
 	return node.PrintInboundMessages()
 }
 
-func (node *Node) handleAdvertise() error {
-	return node.Advertise()
+func (node *Node) handleAnnounce() error {
+	return node.Announce()
 }
 
-func (node *Node) handleFindPeers() error {
-	return node.FindPeers()
+func (node *Node) handleFindProposers() error {
+	return node.FindProposers()
 }
 
 func (node *Node) handleCollect() error {
