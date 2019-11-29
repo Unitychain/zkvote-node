@@ -1,6 +1,41 @@
 # zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on DHT
 `zkvote-node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
 
+## Architecture
+![](https://i.imgur.com/REKBanK.png)
+
+- Cmd
+- Services
+    - Node
+        - Host
+            - Basic p2p functions
+        - Voter
+            - Subscribe to subjects
+            - Create new subject and store subjects by itself
+            - Register
+            - Vote(Prove)
+            - Open(Verify)
+            - Use `pubsub`
+        - Collector
+            - Collect subjects
+            - Use `discovery`
+        - Store
+            - Use DHT and local store for storing values
+            - Use `dht`
+        - Server
+            - A http server hosting a local web UI
+            - Receive proofs
+        - zksnark
+            - Zero-knowledge module
+        - shared components
+            - pubsub
+            - dht
+            - datastore
+- Protocols
+    - SubjectProtocol
+- Protobuf
+    - Subject
+
 ## Flow
 - Onboarding flow:
     - Run `zkvote-node`. The node will connect to other peers in the network.
