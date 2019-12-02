@@ -1,10 +1,8 @@
 package zkvote
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -43,9 +41,11 @@ type Node struct {
 	host.Host
 	*Collector
 	*Voter
+	*Store
 	ctx       context.Context
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
+	db        datastore.Batching
 	mdnsPeers map[peer.ID]peer.AddrInfo
 	streams   chan network.Stream
 }
@@ -71,17 +71,19 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		panic(err)
 	}
 
-	// Use an empty validator here for simplicity
-	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(NodeValidator{}))
-	if err != nil {
-		panic(err)
-	}
-
 	d2, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
 		"pk":   record.PublicKeyValidator{},
 		"ipns": ipns.Validator{KeyBook: host.Peerstore()},
 	}))
 	_ = d2
+
+	// Use an empty validator here for simplicity
+	// CAUTION! Use d2 will cause a "stream reset" error!
+
+	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(NodeValidator{}))
+	if err != nil {
+		panic(err)
+	}
 
 	// Pubsub
 	ps, err := pubsub.NewGossipSub(ctx, host)
@@ -94,12 +96,14 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		Host:      host,
 		dht:       d1,
 		pubsub:    ps,
+		db:        ds,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
 
 	node.Collector, err = NewCollector(node)
 	node.Voter, err = NewVoter(node)
+	node.Store, err = NewStore(node)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -211,71 +215,6 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 
 	fmt.Println("bootstrap OK! Routing table:")
 	node.dht.RoutingTable().Print()
-
-	return nil
-}
-
-// NearestPeersToQuery ...
-func (node *Node) NearestPeersToQuery() error {
-	ctx := context.Background()
-
-	fmt.Print("Key: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	ps, err := node.dht.GetClosestPeers(ctx, k)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("Number of peers: ", len(ps)+1)
-
-	p := <-ps
-	fmt.Println("First peer: ", p)
-
-	return nil
-}
-
-// PutValue ...
-func (node *Node) PutValue() error {
-	ctx := context.Background()
-
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Key: ")
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	fmt.Print("Value: ")
-	scanner.Scan()
-	v := scanner.Text()
-	vb := []byte(v)
-	fmt.Println("Input value: ", v)
-
-	err := node.dht.PutValue(ctx, k, vb)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return nil
-}
-
-// GetValue ...
-func (node *Node) GetValue() error {
-	ctx := context.Background()
-
-	fmt.Print("Key: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	vb, err := node.dht.GetValue(ctx, k)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("Value: ", string(vb))
 
 	return nil
 }
@@ -415,9 +354,10 @@ func (node *Node) Run() {
 	}{
 		{"My info", node.handleMyInfo},
 		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
-		{"DHT: Find nearest peers to query", node.handleNearestPeersToQuery},
-		{"DHT: Put value", node.handlePutValue},
-		{"DHT: Get value", node.handleGetValue},
+		{"Store: Put DHT", node.handlePutDHT},
+		{"Store: Get DHT", node.handleGetDHT},
+		{"Store: Put Local", node.handlePutLocal},
+		{"Store: Get Local", node.handleGetLocal},
 		{"Voter: Propose a subject", node.handlePropose},
 		{"Voter: Subscribe to topic", node.handleJoin},
 		{"Voter: Publish a message", node.handleBroadcast},
@@ -460,16 +400,20 @@ func (node *Node) handleDHTBootstrap() error {
 	return node.DHTBootstrap(dht.DefaultBootstrapPeers...)
 }
 
-func (node *Node) handleNearestPeersToQuery() error {
-	return node.NearestPeersToQuery()
+func (node *Node) handlePutDHT() error {
+	return node.PutDHT()
 }
 
-func (node *Node) handlePutValue() error {
-	return node.PutValue()
+func (node *Node) handlePutLocal() error {
+	return node.PutLocal()
 }
 
-func (node *Node) handleGetValue() error {
-	return node.GetValue()
+func (node *Node) handleGetDHT() error {
+	return node.GetDHT()
+}
+
+func (node *Node) handleGetLocal() error {
+	return node.GetLocal()
 }
 
 func (node *Node) handleJoin() error {
