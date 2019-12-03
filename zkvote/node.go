@@ -365,7 +365,6 @@ func (node *Node) Run() {
 		{"Collector: Advertise topic", node.handleAnnounce},
 		{"Collector: Find topic providers", node.handleFindProposers},
 		{"Collector: Collect all topics", node.handleCollect},
-		{"Collector: List subscribed topics", node.handleList},
 	}
 
 	var str []string
@@ -442,8 +441,4 @@ func (node *Node) handleFindProposers() error {
 
 func (node *Node) handleCollect() error {
 	return node.Collect()
-}
-
-func (node *Node) handleList() error {
-	return node.List()
 }

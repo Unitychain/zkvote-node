@@ -7,6 +7,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/uuid v1.1.1
+	github.com/gorilla/mux v1.7.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-leveldb v0.1.0
 	github.com/ipfs/go-ipns v0.0.1
@@ -21,6 +22,7 @@ require (
 	github.com/libp2p/go-libp2p-record v0.1.1
 	github.com/manifoldco/promptui v0.3.2
 	github.com/multiformats/go-multiaddr v0.1.1
+	github.com/rs/cors v1.7.0
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20191105091915-95d230a53780 // indirect
 )

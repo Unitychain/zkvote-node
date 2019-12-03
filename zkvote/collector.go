@@ -77,6 +77,9 @@ func (collector *Collector) FindProposers() error {
 
 // Collect ...
 func (collector *Collector) Collect() error {
+	// Find proposers first
+	collector.FindProposers()
+
 	for p := range collector.providers {
 		// Ignore self ID
 		if p == collector.ID() {
@@ -89,9 +92,13 @@ func (collector *Collector) Collect() error {
 }
 
 // List ...
-func (collector *Collector) List() error {
+func (collector *Collector) List() []string {
 	topics := collector.pubsub.GetTopics()
 	fmt.Println(topics)
 
-	return nil
+	return topics
+}
+
+func (collector *Collector) GetCollectedSubjects() map[string]string {
+	return collector.collectedSubjects
 }
