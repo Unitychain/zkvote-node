@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	levelds "github.com/ipfs/go-ds-leveldb"
-	zkvote "github.com/unitychain/zkvote-node/zkvote"
+	"github.com/unitychain/zkvote-node/restapi"
+	"github.com/unitychain/zkvote-node/zkvote"
 )
 
 func main() {
@@ -32,11 +35,21 @@ func main() {
 
 	timeSeed := time.Now().UnixNano() / int64(time.Millisecond)
 	rand.Seed(timeSeed)
-	port := rand.Intn(100) + 10000
+	p2pPort := rand.Intn(100) + 10000
+	serverPort := rand.Intn(100) + 3000
+	serverAddr := "127.0.0.1:" + strconv.Itoa(serverPort)
 
-	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize, port)
+	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize, p2pPort)
 	if err != nil {
 		panic(err)
 	}
+
+	server, err := restapi.NewServer(node, serverAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	go server.ListenAndServe()
+	fmt.Printf("HTTP server listens to port %d\n", serverPort)
 	node.Run()
 }
