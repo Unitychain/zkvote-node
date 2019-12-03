@@ -8,29 +8,35 @@
 - Services
     - Node
         - Host
+            - A libp2p host
             - Basic p2p functions
         - Voter
-            - Subscribe to subjects
-            - Create new subject and store subjects by itself
-            - Register
-            - Vote(Prove)
-            - Open(Verify)
+            - `Propose` new subject and store subjects by itself
+            - `Join` existed subjects
+            - `Register` voter's identity
+            - `Vote`(Prove)
+            - `Open`(Verify)
             - Use `pubsub`
         - Collector
-            - Collect subjects
+            - `Announce`
+            - `FindProposers`
+            - `Collect` subjects
             - Use `discovery`
         - Store
             - Use DHT and local store for storing values
             - Use `dht`
-        - Server
-            - A http server hosting a local web UI
-            - Receive proofs
         - zksnark
-            - Zero-knowledge module
+            - ZKP module
         - shared components
             - pubsub
             - dht
             - datastore
+    - RESTAPI
+        - Controller
+            - SubjectsController
+                - QuerySubjects
+        - Model
+            - SubjectModel
 - Protocols
     - SubjectProtocol
 - Protobuf
