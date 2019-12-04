@@ -10,7 +10,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
-	subject "github.com/unitychain/zkvote-node/zkvote/pb"
+	pb "github.com/unitychain/zkvote-node/zkvote/pb"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -20,13 +20,13 @@ const subjectResponse = "/subject/res/0.0.1"
 // SubjectProtocol type
 type SubjectProtocol struct {
 	node     *Node
-	requests map[string]*subject.SubjectRequest // used to access request data from response handlers
-	done     chan bool                          // only for demo purposes to stop main from terminating
+	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
+	done     chan bool                     // only for demo purposes to stop main from terminating
 }
 
 // NewSubjectProtocol ...
 func NewSubjectProtocol(node *Node, done chan bool) *SubjectProtocol {
-	sp := &SubjectProtocol{node: node, requests: make(map[string]*subject.SubjectRequest), done: done}
+	sp := &SubjectProtocol{node: node, requests: make(map[string]*pb.SubjectRequest), done: done}
 	node.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
 	node.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
 	return sp
@@ -36,7 +36,7 @@ func NewSubjectProtocol(node *Node, done chan bool) *SubjectProtocol {
 func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 
 	// get request data
-	data := &subject.SubjectRequest{}
+	data := &pb.SubjectRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
@@ -65,13 +65,13 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	log.Printf("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.MessageData.Id)
 
 	// List subscribed topics
-	subjects := make([]*subject.Subject, 0)
+	subjects := make([]*pb.Subject, 0)
 	for _, t := range sp.node.pubsub.GetTopics() {
-		s := &subject.Subject{Title: t, Description: "foobar"}
+		s := &pb.Subject{Title: t, Description: "foobar"}
 		subjects = append(subjects, s)
 	}
 
-	resp := &subject.SubjectResponse{MessageData: sp.node.NewMessageData(data.MessageData.Id, false),
+	resp := &pb.SubjectResponse{MessageData: sp.node.NewMessageData(data.MessageData.Id, false),
 		Message: fmt.Sprintf("Subject response from %s", sp.node.ID()), Subjects: subjects}
 
 	// sign the data
@@ -94,7 +94,7 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 
 // remote ping response handler
 func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
-	data := &subject.SubjectResponse{}
+	data := &pb.SubjectResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
@@ -119,7 +119,8 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 
 	// Store all topics
 	for _, sub := range data.Subjects {
-		sp.node.collectedSubjects[sub.Title] = sub.Description
+		subject := &Subject{title: sub.Title, description: sub.Description}
+		sp.node.collectedSubjects[subject.hash()] = subject
 	}
 
 	// locate request data and remove it if found
@@ -141,7 +142,7 @@ func (sp *SubjectProtocol) GetCreatedSubjects(peerID peer.ID) bool {
 	log.Printf("Sending subject request to: %s....", peerID)
 
 	// create message data
-	req := &subject.SubjectRequest{MessageData: sp.node.NewMessageData(uuid.New().String(), false),
+	req := &pb.SubjectRequest{MessageData: sp.node.NewMessageData(uuid.New().String(), false),
 		Message: fmt.Sprintf("Subject request from %s", sp.node.ID())}
 
 	// sign the data
