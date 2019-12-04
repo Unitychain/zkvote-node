@@ -1,5 +1,7 @@
 package model
 
+import "github.com/unitychain/zkvote-node/zkvote"
+
 // A GenericError is the default error message that is generated.
 // For certain status codes there are more appropriate error structures.
 //
@@ -21,5 +23,5 @@ type QuerySubjectsParams struct {
 // QuerySubjectsResponse ...
 type QuerySubjectsResponse struct {
 	// in: body
-	Results map[string]string `json:"results"`
+	Results map[[32]byte]*zkvote.Subject `json:"results"`
 }

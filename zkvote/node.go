@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"log"
+	"strconv"
 
 	ggio "github.com/gogo/protobuf/io"
 	proto "github.com/gogo/protobuf/proto"
@@ -21,6 +22,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+
+	"crypto/sha256"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -111,6 +114,10 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}
 	mdns.RegisterNotifee(node)
 
+	// Debug identityIndex
+	identityHash := sha256.Sum256([]byte(strconv.Itoa(port)))
+	node.identityIndex[identityHash] = ""
+
 	return node, nil
 }
 
@@ -172,6 +179,14 @@ func (node *Node) Info() error {
 	// All collected sucjects
 	fmt.Println("All collected subjects:")
 	fmt.Println(node.collectedSubjects)
+
+	// Subscribed topics
+	fmt.Println("All subcribed topics:")
+	fmt.Println(node.pubsub.GetTopics())
+
+	// Identity index
+	fmt.Println("All collected subjects:")
+	fmt.Println(node.identityIndex)
 
 	return nil
 }
@@ -361,6 +376,7 @@ func (node *Node) Run() {
 		{"Voter: Propose a subject", node.handlePropose},
 		{"Voter: Subscribe to topic", node.handleJoin},
 		{"Voter: Publish a message", node.handleBroadcast},
+		{"Voter: Sync identity index", node.handleSyncIdentityIndex},
 		{"Voter: Print inbound messages", node.handlePrintInboundMessages},
 		{"Collector: Advertise topic", node.handleAnnounce},
 		{"Collector: Find topic providers", node.handleFindProposers},
@@ -425,6 +441,10 @@ func (node *Node) handlePropose() error {
 
 func (node *Node) handleBroadcast() error {
 	return node.Broadcast()
+}
+
+func (node *Node) handleSyncIdentityIndex() error {
+	return node.SyncIdentityIndex()
 }
 
 func (node *Node) handlePrintInboundMessages() error {

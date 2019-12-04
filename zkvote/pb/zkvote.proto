@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package protocols.subject;
+package protocols.zkvote;
 
-//// subject protocol
+// subject protocol
 
 // a protocol define a set of reuqest and responses
 message SubjectRequest {
@@ -23,6 +23,24 @@ message SubjectResponse {
 message Subject {
     string title = 1;
     string description = 2;
+}
+
+// identity protocol
+
+// a protocol define a set of reuqest and responses
+message IdentityRequest {
+    MessageData messageData = 1;
+
+    // method specific data
+    string message = 2;
+}
+
+message IdentityResponse {
+    MessageData messageData = 1;
+
+    // response specific data
+    string message = 2;
+    repeated bytes identityIndex = 3;
 }
 
 // designed to be shared between all app protocols

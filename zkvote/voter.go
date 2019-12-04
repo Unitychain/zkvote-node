@@ -10,7 +10,8 @@ import (
 // Voter ...
 type Voter struct {
 	*Node
-	proposals map[string]string
+	*IdentityProtocol
+	proposals map[[32]byte]*Subject
 	messages  map[string][]*pubsub.Message
 }
 
@@ -18,9 +19,12 @@ type Voter struct {
 func NewVoter(node *Node) (*Voter, error) {
 	voter := &Voter{
 		Node:      node,
-		proposals: make(map[string]string),
+		proposals: make(map[[32]byte]*Subject),
 		messages:  make(map[string][]*pubsub.Message),
 	}
+
+	done := make(chan bool, 1)
+	voter.IdentityProtocol = NewIdentityProtocol(node, done)
 
 	return voter, nil
 }
@@ -36,7 +40,14 @@ func (voter *Voter) Propose() error {
 	}
 
 	// Store the new subject locally
-	voter.proposals[subjectTitle] = "Description foobar"
+	subject := &Subject{
+		title:       subjectTitle,
+		description: "Description foobar",
+	}
+
+	// Store the created subject
+	voter.createdSubjects[subject.hash()] = subject
+	// voter.proposals[subject.hash()] = subject
 
 	fmt.Println(voter.proposals)
 
@@ -74,7 +85,8 @@ func (voter *Voter) Join() error {
 }
 
 // Register ...
-func (voter *Voter) Register() error {
+func (voter *Voter) Register(subjectTitle string) error {
+	voter.pubsub.Publish(subjectTitle, []byte("foo"))
 	return nil
 }
 
@@ -135,6 +147,30 @@ func (voter *Voter) PrintInboundMessages() error {
 	}
 	voter.messages[topic] = nil
 	return nil
+}
+
+// SyncIdentityIndex ...
+func (voter *Voter) SyncIdentityIndex() error {
+	for _, title := range voter.GetJoinedSubjectTitles() {
+		// Get peers from the same pubsub
+		peers := voter.pubsub.ListPeers(title)
+		fmt.Println(peers)
+		// Request for registry
+		for _, peer := range peers {
+			voter.GetIdentityIndexFromPeer(peer)
+		}
+	}
+
+	return nil
+}
+
+// GetIdentityIndex ...
+func (voter *Voter) GetIdentityIndex() [][32]byte {
+	identityIndex := make([][32]byte, 0)
+	for i := range voter.identityIndex {
+		identityIndex = append(identityIndex, i)
+	}
+	return identityIndex
 }
 
 func pubsubHandler(voter *Voter, sub *pubsub.Subscription) {

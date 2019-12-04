@@ -13,11 +13,9 @@ import (
 // Collector ...
 type Collector struct {
 	*Node
-	discovery         discovery.Discovery
-	providers         map[peer.ID]string
-	collectedSubjects map[string]string
-	createdSubjects   map[string]string
 	*SubjectProtocol
+	discovery discovery.Discovery
+	providers map[peer.ID]string
 }
 
 // NewCollector ...
@@ -26,11 +24,9 @@ func NewCollector(node *Node) (*Collector, error) {
 	rd := routingDiscovery.NewRoutingDiscovery(node.dht)
 
 	collector := &Collector{
-		Node:              node,
-		discovery:         rd,
-		providers:         make(map[peer.ID]string),
-		collectedSubjects: make(map[string]string),
-		createdSubjects:   make(map[string]string),
+		Node:      node,
+		discovery: rd,
+		providers: make(map[peer.ID]string),
 	}
 
 	done := make(chan bool, 1)
@@ -80,25 +76,36 @@ func (collector *Collector) Collect() error {
 	// Find proposers first
 	collector.FindProposers()
 
-	for p := range collector.providers {
+	for peer := range collector.providers {
 		// Ignore self ID
-		if p == collector.ID() {
+		if peer == collector.ID() {
 			continue
 		}
-		collector.GetCreatedSubjects(p)
+		collector.GetCreatedSubjects(peer)
 	}
 
 	return nil
 }
 
-// List ...
-func (collector *Collector) List() []string {
+// GetJoinedSubjectTitles ...
+func (collector *Collector) GetJoinedSubjectTitles() []string {
 	topics := collector.pubsub.GetTopics()
 	fmt.Println(topics)
 
 	return topics
 }
 
-func (collector *Collector) GetCollectedSubjects() map[string]string {
+// GetCollectedSubjects ...
+func (collector *Collector) GetCollectedSubjects() map[[32]byte]*Subject {
 	return collector.collectedSubjects
+}
+
+// GetCollectedSubjectTitles ...
+func (collector *Collector) GetCollectedSubjectTitles() []string {
+	titles := make([]string, 0)
+	for _, subject := range collector.collectedSubjects {
+		titles = append(titles, subject.title)
+	}
+
+	return titles
 }
