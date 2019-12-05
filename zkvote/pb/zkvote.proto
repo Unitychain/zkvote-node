@@ -33,6 +33,7 @@ message IdentityRequest {
 
     // method specific data
     string message = 2;
+    bytes subjectHash = 3;
 }
 
 message IdentityResponse {
@@ -40,7 +41,8 @@ message IdentityResponse {
 
     // response specific data
     string message = 2;
-    repeated bytes identityIndex = 3;
+    bytes subjectHash = 3;
+    repeated bytes identityHashes = 4;
 }
 
 // designed to be shared between all app protocols
