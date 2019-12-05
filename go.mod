@@ -29,6 +29,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.1.1
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/rs/cors v1.7.0
+	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20191105091915-95d230a53780 // indirect
 )

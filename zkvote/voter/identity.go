@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/unitychain/zkvote-node/zkvote/utils"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 // Identity ...
@@ -18,7 +17,12 @@ const TREE_LEVEL uint8 = 10
 // NewIdentity ...
 func NewIdentity() (*Identity, error) {
 
-	tree, err := NewMerkleTree(TREE_LEVEL)
+	return NewIdentityWithTreeLevel(TREE_LEVEL)
+}
+
+// NewIdentityWithTreeLevel ...
+func NewIdentityWithTreeLevel(treeLevel uint8) (*Identity, error) {
+	tree, err := NewMerkleTree(treeLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +40,7 @@ func NewIdentity() (*Identity, error) {
 func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 	idx, err := i.tree.Insert(idCommitment)
 	if err != nil {
-		utils.LogErrorf("register error, ", err.Error())
+		utils.LogErrorf("register error, %v", err.Error())
 		return -1, err
 	}
 	i.appendRoot(i.tree.GetRoot())
@@ -48,7 +52,7 @@ func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
 	err := i.tree.Update(index, oldIDCommitment, newIDCommitment)
 	if err != nil {
-		utils.LogErrorf("update id error, ", err.Error())
+		utils.LogErrorf("update id error, %v", err.Error())
 		return err
 	}
 	i.appendRoot(i.tree.GetRoot())

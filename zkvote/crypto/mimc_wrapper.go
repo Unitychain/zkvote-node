@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/iden3/go-iden3-crypto/mimc7"
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 const BlockSize = 64
@@ -38,9 +39,13 @@ func (m *mimc7Wrapper) Write(p []byte) (nn int, err error) {
 func (m *mimc7Wrapper) Sum(b []byte) []byte {
 	left := big.NewInt(0).SetBytes(m.data[:int(m.len/2)])
 	right := big.NewInt(0).SetBytes(m.data[int(m.len/2):])
-	h, _ := mimc7.Hash([]*big.Int{left, right}, nil)
-	// fmt.Printf("  %v\n", h)
+	h, err := mimc7.Hash([]*big.Int{left, right}, nil)
 	m.Reset()
+	if err != nil {
+		utils.LogErrorf("mimc hash error, %v", err.Error())
+		return nil
+	}
+	// fmt.Printf("  %v\n", h)
 	return h.Bytes()
 }
 

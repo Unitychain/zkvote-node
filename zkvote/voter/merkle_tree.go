@@ -1,12 +1,13 @@
 package voter
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
-	mimcwrapper "../crypto"
 	merkletree "github.com/cbergoon/merkletree"
 	mimc7 "github.com/iden3/go-iden3-crypto/mimc7"
+	mimcwrapper "github.com/unitychain/zkvote-node/zkvote/crypto"
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
@@ -75,6 +76,10 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 // Insert : insert into to the merkle tree
 func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 
+	if m.IsExisted(value) {
+		return -1, fmt.Errorf("value existed, %v", value)
+	}
+
 	currentIndex := m.nextIndex
 	m.content[currentIndex] = TreeContent{value}
 
@@ -84,7 +89,7 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 	}
 	m.root = root
 	m.nextIndex++
-	utils.LogInfof("new merkle root: ", root)
+	utils.LogInfof("new merkle root: %v", root)
 
 	return int(currentIndex), nil
 }
@@ -92,8 +97,15 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 // Update : update a leaf of this merkle tree
 func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 
-	if 0 == m.content[index].(TreeContent).x.Cmp(oldValue) {
-		utils.LogErrorf("old value is not matched.")
+	if 0 == oldValue.Cmp(newValue) {
+		return fmt.Errorf("old and new value are the same")
+	}
+	if !m.IsExisted(oldValue) {
+		return fmt.Errorf("old value not existed, %v", oldValue)
+	}
+	if eq, _ := m.content[index].Equals(TreeContent{oldValue}); !eq {
+		// utils.LogErrorf("value of the index is not matched old value.")
+		return fmt.Errorf("value of the index is not matched old value")
 	}
 
 	m.content[index] = TreeContent{newValue}
@@ -117,7 +129,7 @@ func (m *MerkleTree) GetPath(value *big.Int) []byte {
 
 	idx := m.getIndexByValue(value)
 	if idx == -1 {
-		utils.LogWarningf("Can NOT find index of value, ", value)
+		utils.LogWarningf("Can NOT find index of value, %v", value)
 		return nil
 	}
 	paths := make([]byte, m.levels)
@@ -139,7 +151,7 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 
 	idx := m.getIndexByValue(value)
 	if idx == -1 {
-		utils.LogWarningf("Can NOT find index of value, ", value)
+		utils.LogWarningf("Can NOT find index of value, %v", value)
 		return nil
 	}
 	currentIdx := idx
@@ -160,7 +172,7 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 			} else {
 				h, e := mimc7.Hash([]*big.Int{&tree[i-1][2*j], &tree[i-1][2*j+1]}, nil)
 				if e != nil {
-					utils.LogWarningf("ERROR: calculate mimc7 error, ", e.Error())
+					utils.LogWarningf("ERROR: calculate mimc7 error, %v", e.Error())
 					return nil
 				}
 				valuesOfLevel[j] = *h
@@ -180,14 +192,21 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 	return imv
 }
 
+// IsExisted ...
+func (m *MerkleTree) IsExisted(value *big.Int) bool {
+	if 0 <= m.getIndexByValue(value) {
+		return true
+	}
+	return false
+}
+
 //
 // Internal functions
 //
 func (m *MerkleTree) getIndexByValue(value *big.Int) int {
-
-	for i := 0; i < int(math.Pow(2, float64(m.levels))); i++ {
-		if 0 == m.content[i].(TreeContent).x.Cmp(value) {
-			utils.LogDebugf("Got index, ", i)
+	for i, c := range m.content {
+		if eq, _ := c.Equals(TreeContent{value}); eq {
+			utils.LogDebugf("Got index, %d", i)
 			return i
 		}
 	}
@@ -199,7 +218,7 @@ func calculateRoot(content []merkletree.Content) (*big.Int, error) {
 	var hashStrategy = mimcwrapper.MiMC7New
 	tree, err := merkletree.NewTreeWithHashStrategy(content, hashStrategy)
 	if err != nil {
-		utils.LogErrorf("init merkle tree error, ", err.Error())
+		utils.LogErrorf("init merkle tree error, %v", err.Error())
 		return nil, err
 	}
 
