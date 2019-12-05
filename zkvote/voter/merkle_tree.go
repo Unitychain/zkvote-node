@@ -11,8 +11,10 @@ import (
 )
 
 //
-//  TreeContent...
+//  TreeContent
 //
+
+// TreeContent ...
 type TreeContent struct {
 	x *big.Int
 }
@@ -20,7 +22,6 @@ type TreeContent struct {
 //CalculateHash hashes the values of a TreeContent
 func (t TreeContent) CalculateHash() ([]byte, error) {
 	return t.x.Bytes(), nil
-
 	// if 0 == t.x.Cmp(big.NewInt(0)) {
 	// 	return []byte{0}, nil
 	// }
@@ -35,8 +36,10 @@ func (t TreeContent) Equals(other merkletree.Content) (bool, error) {
 }
 
 //
-//  MerkleTree ...
+//  MerkleTree
 //
+
+// MerkleTree ...
 type MerkleTree struct {
 	levels    uint8
 	nextIndex uint
@@ -69,6 +72,7 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 	}, nil
 }
 
+// Insert : insert into to the merkle tree
 func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 
 	currentIndex := m.nextIndex
@@ -85,7 +89,7 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 	return int(currentIndex), nil
 }
 
-// Update ...
+// Update : update a leaf of this merkle tree
 func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 
 	if 0 == m.content[index].(TreeContent).x.Cmp(oldValue) {
@@ -103,10 +107,12 @@ func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 	return nil
 }
 
+// GetRoot : get current merkle root
 func (m *MerkleTree) GetRoot() *big.Int {
 	return m.root
 }
 
+// GetPath : get merkle path of a leaf
 func (m *MerkleTree) GetPath(value *big.Int) []byte {
 
 	idx := m.getIndexByValue(value)
@@ -128,6 +134,7 @@ func (m *MerkleTree) GetPath(value *big.Int) []byte {
 	return paths
 }
 
+// GetIntermediateValues : get all intermediate values of a leaf
 func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 
 	idx := m.getIndexByValue(value)
@@ -172,6 +179,9 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 	return imv
 }
 
+//
+// Internal functions
+//
 func (m *MerkleTree) getIndexByValue(value *big.Int) int {
 
 	for i := 0; i < int(math.Pow(2, float64(m.levels))); i++ {

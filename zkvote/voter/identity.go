@@ -30,7 +30,7 @@ func NewIdentity() (*Identity, error) {
 	}, nil
 }
 
-// Register ...
+// Register : register id
 func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 	idx, err := i.tree.Insert(idCommitment)
 	if err != nil {
@@ -42,7 +42,7 @@ func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 	return idx, nil
 }
 
-// Update ...
+// Update : update id
 func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
 	err := i.tree.Update(index, oldIDCommitment, newIDCommitment)
 	if err != nil {
@@ -54,6 +54,7 @@ func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int)
 	return nil
 }
 
+// IsMember : check if the merkle root is in the root list or not
 func (i *Identity) IsMember(root *big.Int) bool {
 	for _, r := range i.rootHistory {
 		if 0 == r.Cmp(root) {
@@ -63,6 +64,9 @@ func (i *Identity) IsMember(root *big.Int) bool {
 	return false
 }
 
+//
+// Internal functions
+//
 func (i *Identity) appendRoot(r *big.Int) {
 	i.rootHistory = append(i.rootHistory, i.tree.GetRoot())
 }

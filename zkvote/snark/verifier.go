@@ -18,6 +18,7 @@ type Vote struct {
 	PublicSignal  []string                   `json:"public_signal"` //root, nullifiers_hash, signal_hash, external_nullifier
 }
 
+// Parse : parse proof from json string to Vote struct
 func Parse(jsonProof string) *Vote {
 
 	var vote Vote
@@ -29,6 +30,7 @@ func Parse(jsonProof string) *Vote {
 	return &vote
 }
 
+// VerifyByFile : verify proof
 func VerifyByFile(vkPath string, pfPath string) bool {
 
 	dat, err := ioutil.ReadFile("./vote.proof")
@@ -41,6 +43,7 @@ func VerifyByFile(vkPath string, pfPath string) bool {
 	return Verify(string(vkFile), proof.Proof, proof.PublicSignal)
 }
 
+// Verify : verify proof
 func Verify(vkString string, proof *goSnarkVerifier.CircomProof, publicSignal []string) bool {
 
 	//

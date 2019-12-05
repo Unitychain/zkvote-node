@@ -27,7 +27,7 @@ type Proposal struct {
 }
 
 const HASH_YES = "43379584054787486383572605962602545002668015983485933488536749112829893476306"
-const HASH_NO = "89477152217924674838424037953991966239322087453347756267410168184682657981552"
+const HASH_NO = "85131057757245807317576516368191972321038229705283732634690444270750521936266"
 
 // NewProposal ...
 func NewProposal(identity *Identity) (*Proposal, error) {
@@ -53,10 +53,12 @@ func NewProposal(identity *Identity) (*Proposal, error) {
 	}, nil
 }
 
+// Propose : propose a question
 func (p *Proposal) Propose(q string) int {
 
 	bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
 	p.nullifiers[p.index] = &nullifier{
+		// TODO: Div(8) is a workaround because a bits conversion issue in circom
 		hash:    bigHashQus.Div(bigHashQus, big.NewInt(8)),
 		content: q,
 		votes: vote{
@@ -69,12 +71,115 @@ func (p *Proposal) Propose(q string) int {
 	return p.index - 1
 }
 
+// Vote : vote with zk proof
+func (p *Proposal) Vote(idx int, proofs string, vkString string) bool {
+
+	snarkVote := snark.Parse(proofs)
+	if !p.isValidVote(idx, snarkVote, vkString) {
+		fmt.Println("Not a valid vote!")
+		return false
+	}
+
+	bigNullHash, _ := big.NewInt(0).SetString(snarkVote.NullifierHash, 10)
+	p.nullifiers[idx].votes.records = append(p.nullifiers[idx].votes.records, bigNullHash)
+
+	if snarkVote.PublicSignal[2] == HASH_YES {
+		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, true)
+	} else {
+		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, false)
+	}
+
+	return true
+}
+
+// Remove : remove a proposal from the list
+func (p *Proposal) Remove(idx int) {
+	if !p.checkIndex(idx) {
+		return
+	}
+	delete(p.nullifiers, idx)
+}
+
+// Close : close a proposal which means can't vote anymore
+func (p *Proposal) Close(idx int) {
+	if !p.checkIndex(idx) {
+		return
+	}
+	p.nullifiers[idx].votes.finished = true
+}
+
+// HasProposal : check proposal exists or not
+// return : -1, not exists, proposal index otherwise
+func (p *Proposal) HasProposal(q string) int {
+	for i, e := range p.nullifiers {
+		if e.content == q {
+			return i
+		}
+	}
+	return -1
+}
+
+// HasProposalByHash : check proposal exists or not
+// return : -1, not exists, proposal index otherwise
+func (p *Proposal) HasProposalByHash(hash *big.Int) int {
+	for i, e := range p.nullifiers {
+		if 0 == e.hash.Cmp(hash) {
+			return i
+		}
+	}
+	return -1
+}
+
+// GetCurrentIdex : get current index of whole questions
+func (p *Proposal) GetCurrentIdex() int {
+	return p.index
+}
+
+// GetVotes : get total votes
+func (p *Proposal) GetVotes(idx int) (yes, no int) {
+	nul := p.getProposal(idx)
+	if nul == nil {
+		return -1, -1
+	}
+	ops := nul.votes.opinion
+
+	for _, o := range ops {
+		if true == o {
+			yes++
+		} else {
+			no++
+		}
+	}
+	return yes, no
+}
+
+// GetProposal : Get a proposal instance
+func (p *Proposal) getProposal(idx int) *nullifier {
+	if !p.checkIndex(idx) {
+		return nil
+	}
+	return p.nullifiers[idx]
+}
+
+// // GetProposalByHash : Get a proposal instance by question hash
+// func (p *Proposal) getProposalByHash(hash *big.Int) *nullifier {
+// 	idx := p.HasProposalByHash(hash)
+// 	return p.getProposal(idx)
+// }
+
+//
+// Internal functions
+//
+func (p *Proposal) isFinished(idx int) bool {
+	return p.nullifiers[idx].votes.finished
+}
+
 func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) bool {
 	if !p.checkIndex(idx) {
 		return false
 	}
-	if nil == p.nullifiers[idx] {
-		fmt.Printf("question doesn't exist (idex %d)", idx)
+	if p.isFinished(idx) {
+		fmt.Printf("question has been closed (idex %d)", idx)
 		return false
 	}
 
@@ -105,26 +210,6 @@ func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) boo
 	return snark.Verify(vkString, proofs.Proof, proofs.PublicSignal)
 }
 
-func (p *Proposal) Vote(idx int, proofs string, vkString string) bool {
-
-	snarkVote := snark.Parse(proofs)
-	if !p.isValidVote(idx, snarkVote, vkString) {
-		fmt.Println("Not a valid vote!")
-		return false
-	}
-
-	bigNullHash, _ := big.NewInt(0).SetString(snarkVote.NullifierHash, 10)
-	p.nullifiers[idx].votes.records = append(p.nullifiers[idx].votes.records, bigNullHash)
-
-	if snarkVote.PublicSignal[3] == HASH_YES {
-		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, true)
-	} else {
-		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, false)
-	}
-
-	return true
-}
-
 func (p *Proposal) isVoted(idx int, nullifierHash string) bool {
 	bigNullHash, _ := big.NewInt(0).SetString(nullifierHash, 10)
 	for _, r := range p.nullifiers[idx].votes.records {
@@ -142,59 +227,13 @@ func isValidOpinion(hash string) bool {
 	return false
 }
 
-func (p *Proposal) Remove(idx int) {
-	if !p.checkIndex(idx) {
-		return
-	}
-	delete(p.nullifiers, idx)
-}
-
-func (p *Proposal) Close(idx int) {
-	if !p.checkIndex(idx) {
-		return
-	}
-	p.nullifiers[idx].votes.finished = true
-}
-
-func (p *Proposal) HasProposal(q string) int {
-
-	for i, e := range p.nullifiers {
-		if e.content == q {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *Proposal) HasProposalByHash(hash *big.Int) int {
-
-	for i, e := range p.nullifiers {
-		if 0 == e.hash.Cmp(hash) {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *Proposal) GetProposal(idx int) *nullifier {
-	if p.checkIndex(idx) {
-		return nil
-	}
-	return p.nullifiers[idx]
-}
-
-func (p *Proposal) GetProposalByHash(hash *big.Int) *nullifier {
-	idx := p.HasProposalByHash(hash)
-	return p.GetProposal(idx)
-}
-
-func (p *Proposal) GetCurrentIdex() int {
-	return p.index
-}
-
 func (p *Proposal) checkIndex(idx int) bool {
 	if idx > p.GetCurrentIdex() {
 		fmt.Printf("index (%d) is incorrect, max index is %d", idx, p.index)
+		return false
+	}
+	if nil == p.nullifiers[idx] {
+		fmt.Printf("question doesn't exist (index %d)", idx)
 		return false
 	}
 	return true
