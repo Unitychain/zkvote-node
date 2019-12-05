@@ -96,14 +96,14 @@ func (collector *Collector) GetJoinedSubjectTitles() []string {
 }
 
 // GetCollectedSubjects ...
-func (collector *Collector) GetCollectedSubjects() map[[32]byte]*Subject {
+func (collector *Collector) GetCollectedSubjects() *SubjectMap {
 	return collector.collectedSubjects
 }
 
 // GetCollectedSubjectTitles ...
 func (collector *Collector) GetCollectedSubjectTitles() []string {
 	titles := make([]string, 0)
-	for _, subject := range collector.collectedSubjects {
+	for _, subject := range collector.collectedSubjects.Map {
 		titles = append(titles, subject.title)
 	}
 

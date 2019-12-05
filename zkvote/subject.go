@@ -2,6 +2,7 @@ package zkvote
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 )
 
 // Subject ...
@@ -10,6 +11,26 @@ type Subject struct {
 	description string
 }
 
-func (s *Subject) hash() [32]byte {
-	return sha256.Sum256([]byte(s.title + s.description))
+// SubjectHash ...
+type SubjectHash struct {
+	hash []byte
+}
+
+// SubjectMap ...
+type SubjectMap struct {
+	Map map[SubjectHashHex]*Subject
+}
+
+// SubjectHashHex ...
+type SubjectHashHex struct {
+	hex string
+}
+
+func (s *Subject) hash() *SubjectHash {
+	h := sha256.Sum256([]byte(s.title + s.description))
+	return &SubjectHash{hash: h[:]}
+}
+
+func (s *SubjectHash) hex() SubjectHashHex {
+	return SubjectHashHex{hex: hex.EncodeToString(s.hash)}
 }

@@ -120,7 +120,8 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 	// Store all topics
 	for _, sub := range data.Subjects {
 		subject := &Subject{title: sub.Title, description: sub.Description}
-		sp.node.collectedSubjects[subject.hash()] = subject
+		subjectMap := sp.node.collectedSubjects.Map
+		subjectMap[subject.hash().hex()] = subject
 	}
 
 	// locate request data and remove it if found

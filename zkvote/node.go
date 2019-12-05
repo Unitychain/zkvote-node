@@ -1,13 +1,14 @@
 package zkvote
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"log"
-	"strconv"
 
 	ggio "github.com/gogo/protobuf/io"
 	proto "github.com/gogo/protobuf/proto"
@@ -22,8 +23,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-
-	"crypto/sha256"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -114,10 +113,6 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}
 	mdns.RegisterNotifee(node)
 
-	// Debug identityIndex
-	identityHash := sha256.Sum256([]byte(strconv.Itoa(port)))
-	node.identityIndex[identityHash] = ""
-
 	return node, nil
 }
 
@@ -176,17 +171,28 @@ func (node *Node) Info() error {
 	fmt.Println("Connections:")
 	fmt.Println(len(node.Network().Conns()))
 
-	// All collected sucjects
-	fmt.Println("All collected subjects:")
+	fmt.Println("Created subjectHashHex:")
+	for sh := range node.createdSubjects.Map {
+		fmt.Println(sh.hex)
+	}
+
+	fmt.Println("Collected subjects:")
 	fmt.Println(node.collectedSubjects)
 
-	// Subscribed topics
-	fmt.Println("All subcribed topics:")
+	fmt.Println("IdentityIndex:")
+	for k, set := range node.identityIndex.Index {
+		fmt.Println(k)
+		fmt.Println(set)
+	}
+
+	fmt.Println("Subcribed topics:")
 	fmt.Println(node.pubsub.GetTopics())
 
-	// Identity index
-	fmt.Println("All collected subjects:")
-	fmt.Println(node.identityIndex)
+	fmt.Println("Subscriptions:")
+	for key, value := range node.subscriptions {
+		fmt.Println(key)
+		fmt.Println(value.identitySubscription)
+	}
 
 	return nil
 }
@@ -374,7 +380,8 @@ func (node *Node) Run() {
 		{"Store: Put Local", node.handlePutLocal},
 		{"Store: Get Local", node.handleGetLocal},
 		{"Voter: Propose a subject", node.handlePropose},
-		{"Voter: Subscribe to topic", node.handleJoin},
+		{"Voter: Join a subject", node.handleJoin},
+		{"Voter: Register identity", node.handleRegister},
 		{"Voter: Publish a message", node.handleBroadcast},
 		{"Voter: Sync identity index", node.handleSyncIdentityIndex},
 		{"Voter: Print inbound messages", node.handlePrintInboundMessages},
@@ -432,11 +439,42 @@ func (node *Node) handleGetLocal() error {
 }
 
 func (node *Node) handleJoin() error {
-	return node.Join()
+	p := promptui.Prompt{
+		Label: "Subject hash hex",
+	}
+	subjectHashHex, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	return node.Join(subjectHashHex)
 }
 
 func (node *Node) handlePropose() error {
-	return node.Propose()
+	p := promptui.Prompt{
+		Label: "Subject title",
+	}
+	subjectTitle, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	return node.Propose(subjectTitle)
+}
+
+func (node *Node) handleRegister() error {
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Subject hash hex: ")
+	scanner.Scan()
+	subjectHashHex := scanner.Text()
+	fmt.Println("Subject hash hex: ", subjectHashHex)
+
+	fmt.Print("Identity commitment hex: ")
+	scanner.Scan()
+	identityCommitmentHex := scanner.Text()
+	fmt.Println("Input value: ", identityCommitmentHex)
+
+	return node.Register(subjectHashHex, identityCommitmentHex)
 }
 
 func (node *Node) handleBroadcast() error {

@@ -23,5 +23,5 @@ type QuerySubjectsParams struct {
 // QuerySubjectsResponse ...
 type QuerySubjectsResponse struct {
 	// in: body
-	Results map[[32]byte]*zkvote.Subject `json:"results"`
+	Results *zkvote.SubjectMap `json:"results"`
 }
