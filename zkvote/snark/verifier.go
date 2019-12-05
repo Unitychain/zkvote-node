@@ -2,13 +2,14 @@ package snark
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/arnaucube/go-snark/externalVerif"
 	goSnarkVerifier "github.com/arnaucube/go-snark/externalVerif"
 	"github.com/arnaucube/go-snark/groth16"
 	goSnarkUtils "github.com/arnaucube/go-snark/utils"
+
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 type Vote struct {
@@ -24,16 +25,15 @@ func Parse(jsonProof string) *Vote {
 	var vote Vote
 	err := json.Unmarshal([]byte(jsonProof), &vote)
 	if err != nil {
-		fmt.Println("unmarshal", err)
+		utils.LogErrorf("parse proof: unmarshal error %v", err.Error())
 	}
-	// fmt.Println(vote)
 	return &vote
 }
 
 // VerifyByFile : verify proof
 func VerifyByFile(vkPath string, pfPath string) bool {
 
-	dat, err := ioutil.ReadFile("./vote.proof")
+	dat, err := ioutil.ReadFile(pfPath)
 	proof := Parse(string(dat))
 
 	vkFile, err := ioutil.ReadFile(vkPath)
@@ -63,10 +63,10 @@ func Verify(vkString string, proof *goSnarkVerifier.CircomProof, publicSignal []
 	strVk.G2.Delta = circomVk.Delta2
 	vk, err := goSnarkUtils.GrothVkFromString(strVk)
 	if err != nil {
-		fmt.Printf("GrothVkFromString error: %s\n", err.Error())
+		utils.LogErrorf("GrothVkFromString error: %s", err.Error())
 		return false
 	}
-	// fmt.Println("vk parsed:", vk)
+	// utils.LogInfof("vk parsed: %v", vk)
 
 	//
 	// proof
@@ -78,7 +78,7 @@ func Verify(vkString string, proof *goSnarkVerifier.CircomProof, publicSignal []
 	}
 	grothProof, err := goSnarkUtils.GrothProofFromString(strProof)
 	if err != nil {
-		fmt.Printf("GrothProofFromString error: %s\n", err.Error())
+		utils.LogErrorf("GrothProofFromString error: %s\n", err.Error())
 		return false
 	}
 	// fmt.Println("proof parsed:", grothProof)
@@ -88,10 +88,10 @@ func Verify(vkString string, proof *goSnarkVerifier.CircomProof, publicSignal []
 	//
 	publicSignals, err := goSnarkUtils.ArrayStringToBigInt(publicSignal)
 	if err != nil {
-		fmt.Printf("ArrayStringToBigInt error: %s\n", err.Error())
+		utils.LogErrorf("ArrayStringToBigInt error: %s\n", err.Error())
 		return false
 	}
-	fmt.Println("publicSignals parsed:", publicSignals)
+	utils.LogDebugf("publicSignals parsed: %v", publicSignals)
 
 	verified := groth16.VerifyProof(vk, grothProof, publicSignals, true)
 	return verified

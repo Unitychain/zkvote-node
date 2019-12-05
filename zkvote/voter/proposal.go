@@ -1,11 +1,11 @@
 package voter
 
 import (
-	"fmt"
 	"math/big"
 
-	"../snark"
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/unitychain/zkvote-node/zkvote/snark"
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 type vote struct {
@@ -76,7 +76,7 @@ func (p *Proposal) Vote(idx int, proofs string, vkString string) bool {
 
 	snarkVote := snark.Parse(proofs)
 	if !p.isValidVote(idx, snarkVote, vkString) {
-		fmt.Println("Not a valid vote!")
+		utils.LogError("Not a valid vote!")
 		return false
 	}
 
@@ -179,7 +179,7 @@ func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) boo
 		return false
 	}
 	if p.isFinished(idx) {
-		fmt.Printf("question has been closed (idex %d)", idx)
+		utils.LogWarningf("question has been closed (idex %d)", idx)
 		return false
 	}
 
@@ -190,20 +190,20 @@ func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) boo
 
 	bigExternalNull, _ := big.NewInt(0).SetString(externalNullifier, 10)
 	if 0 != p.nullifiers[idx].hash.Cmp(bigExternalNull) {
-		fmt.Printf("question doesn't match (%v)/(%v)\n", p.nullifiers[idx].hash, bigExternalNull)
+		utils.LogWarningf("question doesn't match (%v)/(%v)\n", p.nullifiers[idx].hash, bigExternalNull)
 		return false
 	}
 	if p.isVoted(idx, nullifierHash) {
-		fmt.Printf("Voted already, %v\n", nullifierHash)
+		utils.LogWarningf("Voted already, %v\n", nullifierHash)
 		return false
 	}
 	if !isValidOpinion(singalHash) {
-		fmt.Printf("Not a valid vote hash, %v\n", singalHash)
+		utils.LogWarningf("Not a valid vote hash, %v\n", singalHash)
 		return false
 	}
 	bigRoot, _ := big.NewInt(0).SetString(root, 10)
 	if !p.members.IsMember(bigRoot) {
-		fmt.Printf("Not member, %v\n", root)
+		utils.LogWarningf("Not member, %v\n", root)
 		return false
 	}
 
@@ -229,11 +229,11 @@ func isValidOpinion(hash string) bool {
 
 func (p *Proposal) checkIndex(idx int) bool {
 	if idx > p.GetCurrentIdex() {
-		fmt.Printf("index (%d) is incorrect, max index is %d", idx, p.index)
+		utils.LogWarningf("index (%d) is incorrect, max index is %d", idx, p.index)
 		return false
 	}
 	if nil == p.nullifiers[idx] {
-		fmt.Printf("question doesn't exist (index %d)", idx)
+		utils.LogWarningf("question doesn't exist (index %d)", idx)
 		return false
 	}
 	return true

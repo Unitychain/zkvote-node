@@ -1,8 +1,10 @@
 package voter
 
 import (
-	"fmt"
 	"math/big"
+
+	"github.com/unitychain/zkvote-node/zkvote/utils"
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 // Identity ...
@@ -34,7 +36,7 @@ func NewIdentity() (*Identity, error) {
 func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 	idx, err := i.tree.Insert(idCommitment)
 	if err != nil {
-		fmt.Printf("register error, ", err.Error())
+		utils.LogErrorf("register error, ", err.Error())
 		return -1, err
 	}
 	i.appendRoot(i.tree.GetRoot())
@@ -46,7 +48,7 @@ func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
 	err := i.tree.Update(index, oldIDCommitment, newIDCommitment)
 	if err != nil {
-		fmt.Printf("update id error, ", err.Error())
+		utils.LogErrorf("update id error, ", err.Error())
 		return err
 	}
 	i.appendRoot(i.tree.GetRoot())

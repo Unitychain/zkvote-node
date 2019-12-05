@@ -11,11 +11,14 @@ import (
 	levelds "github.com/ipfs/go-ds-leveldb"
 	"github.com/unitychain/zkvote-node/restapi"
 	"github.com/unitychain/zkvote-node/zkvote"
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 func main() {
 	path := flag.String("db", "dht-data", "Database folder")
 	flag.Parse()
+
+	utils.OpenLog()
 
 	// ~~ 0c. Note that contexts are an ugly way of controlling component
 	// lifecycles. Talk about the service-based host refactor.
