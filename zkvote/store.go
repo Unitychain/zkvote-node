@@ -13,18 +13,18 @@ import (
 // Store ...
 type Store struct {
 	*Node
-	collectedSubjects map[[32]byte]*Subject
-	createdSubjects   map[[32]byte]*Subject
-	identityIndex     map[[32]byte]string
+	collectedSubjects *SubjectMap
+	createdSubjects   *SubjectMap
+	identityIndex     *IdentityIndex
 }
 
 // NewStore ...
 func NewStore(node *Node) (*Store, error) {
 	store := &Store{
 		Node:              node,
-		collectedSubjects: make(map[[32]byte]*Subject),
-		createdSubjects:   make(map[[32]byte]*Subject),
-		identityIndex:     make(map[[32]byte]string),
+		collectedSubjects: &SubjectMap{Map: make(map[SubjectHashHex]*Subject)},
+		createdSubjects:   &SubjectMap{make(map[SubjectHashHex]*Subject)},
+		identityIndex:     &IdentityIndex{Index: make(map[SubjectHashHex]*IdentityHashSet)},
 	}
 
 	return store, nil
