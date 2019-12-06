@@ -6,14 +6,14 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/manifoldco/promptui"
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // Voter ...
 type Voter struct {
 	*Node
 	*IdentityProtocol
-	proposals     map[SubjectHashHex]*Subject
-	subscriptions map[SubjectHashHex]*VoterSubscription
+	subscriptions map[subject.HashHex]*VoterSubscription
 	messages      map[string][]*pubsub.Message
 }
 
@@ -27,8 +27,7 @@ type VoterSubscription struct {
 func NewVoter(node *Node) (*Voter, error) {
 	voter := &Voter{
 		Node:          node,
-		proposals:     make(map[SubjectHashHex]*Subject),
-		subscriptions: make(map[SubjectHashHex]*VoterSubscription),
+		subscriptions: make(map[subject.HashHex]*VoterSubscription),
 		messages:      make(map[string][]*pubsub.Message),
 	}
 
@@ -41,32 +40,29 @@ func NewVoter(node *Node) (*Voter, error) {
 // Propose ...
 func (voter *Voter) Propose(subjectTitle string) error {
 	// Store the new subject locally
-	subject := &Subject{
-		title:       subjectTitle,
-		description: "Description foobar",
-	}
+	subject := subject.NewSubject(subjectTitle, "Description foobar")
 
 	// Store the created subject
-	voter.createdSubjects.Map[subject.hash().hex()] = subject
+	voter.createdSubjects[subject.Hash().Hex()] = subject
 
-	fmt.Println(voter.proposals)
+	fmt.Println(voter.createdSubjects)
 
 	// Subscribe to two topics: one for identities, one for votes
-	identitySub, err := voter.pubsub.Subscribe("identity/" + subject.hash().hex().hex)
+	identitySub, err := voter.pubsub.Subscribe("identity/" + subject.Hash().Hex().String())
 	if err != nil {
 		return err
 	}
 
-	voteSub, err := voter.pubsub.Subscribe("vote/" + subject.hash().hex().hex)
+	voteSub, err := voter.pubsub.Subscribe("vote/" + subject.Hash().Hex().String())
 	if err != nil {
 		return err
 	}
 
 	// Store the subscriptions
 	voterSub := &VoterSubscription{identitySubscription: identitySub, voteSubscription: voteSub}
-	voter.subscriptions[subject.hash().hex()] = voterSub
+	voter.subscriptions[subject.Hash().Hex()] = voterSub
 
-	go identitySubHandler(voter, subject.hash(), identitySub)
+	go identitySubHandler(voter, subject.Hash(), identitySub)
 	// go voteSubHandler(voter, voteSub)
 
 	// Announce
@@ -81,7 +77,7 @@ func (voter *Voter) Join(subjectHashHex string) error {
 	if err != nil {
 		return err
 	}
-	subjectHash := &SubjectHash{hash: hash}
+	subjectHash := subject.Hash(hash)
 
 	identitySub, err := voter.pubsub.Subscribe("identity/" + subjectHashHex)
 	if err != nil {
@@ -95,9 +91,9 @@ func (voter *Voter) Join(subjectHashHex string) error {
 
 	// Store the subscriptions
 	voterSub := &VoterSubscription{identitySubscription: identitySub, voteSubscription: voteSub}
-	voter.subscriptions[subjectHash.hex()] = voterSub
+	voter.subscriptions[subjectHash.Hex()] = voterSub
 
-	go identitySubHandler(voter, subjectHash, identitySub)
+	go identitySubHandler(voter, &subjectHash, identitySub)
 
 	return nil
 }
@@ -108,7 +104,7 @@ func (voter *Voter) Register(subjectHashHex string, identityCommitmentHex string
 	if err != nil {
 		return err
 	}
-	subjectHash := &SubjectHash{hash: subHash}
+	subjectHash := subject.Hash(subHash)
 
 	idHash, err := hex.DecodeString(identityCommitmentHex)
 	if err != nil {
@@ -116,7 +112,7 @@ func (voter *Voter) Register(subjectHashHex string, identityCommitmentHex string
 	}
 	identity := &Identity{commitment: idHash}
 
-	voterSubscription := voter.subscriptions[subjectHash.hex()]
+	voterSubscription := voter.subscriptions[subjectHash.Hex()]
 	identitySubscription := voterSubscription.identitySubscription
 	identityTopic := identitySubscription.Topic()
 
@@ -188,14 +184,14 @@ func (voter *Voter) PrintInboundMessages() error {
 // SyncIdentityIndex ...
 func (voter *Voter) SyncIdentityIndex() error {
 	for subjectHashHex, voterSub := range voter.subscriptions {
-		h, _ := hex.DecodeString(subjectHashHex.hex)
-		subjectHash := &SubjectHash{hash: h}
+		h, _ := hex.DecodeString(subjectHashHex.String())
+		subjectHash := subject.Hash(h)
 		// Get peers from the same pubsub
 		peers := voter.pubsub.ListPeers(voterSub.identitySubscription.Topic())
 		fmt.Println(peers)
 		// Request for registry
 		for _, peer := range peers {
-			voter.GetIdentityIndexFromPeer(peer, subjectHash)
+			voter.GetIdentityIndexFromPeer(peer, &subjectHash)
 		}
 	}
 
@@ -203,8 +199,8 @@ func (voter *Voter) SyncIdentityIndex() error {
 }
 
 // GetIdentityHashes ...
-func (voter *Voter) GetIdentityHashes(subjectHash *SubjectHash) []*IdentityHash {
-	identityHashSet, ok := voter.identityIndex.Index[subjectHash.hex()]
+func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []*IdentityHash {
+	identityHashSet, ok := voter.identityIndex.Index[subjectHash.Hex()]
 	if !ok {
 		identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
 	}
@@ -233,7 +229,7 @@ func pubsubHandler(voter *Voter, sub *pubsub.Subscription) {
 	}
 }
 
-func identitySubHandler(voter *Voter, subjectHash *SubjectHash, subscription *pubsub.Subscription) {
+func identitySubHandler(voter *Voter, subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {
 		m, err := subscription.Next(voter.ctx)
 		if err != nil {
@@ -245,12 +241,12 @@ func identitySubHandler(voter *Voter, subjectHash *SubjectHash, subscription *pu
 
 		fmt.Println("identitySubHandler: Received message")
 
-		identityHashSet, ok := voter.identityIndex.Index[subjectHash.hex()]
+		identityHashSet, ok := voter.identityIndex.Index[subjectHash.Hex()]
 		if !ok {
 			identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
 		}
 		identityHashSet.set[identityHash.hex()] = ""
-		voter.identityIndex.Index[subjectHash.hex()] = identityHashSet
+		voter.identityIndex.Index[subjectHash.Hex()] = identityHashSet
 		voter.Unlock()
 	}
 }

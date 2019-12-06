@@ -5,12 +5,12 @@ import (
 	"io/ioutil"
 	"log"
 
+	proto "github.com/gogo/protobuf/proto"
+	uuid "github.com/google/uuid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-
-	proto "github.com/gogo/protobuf/proto"
-	uuid "github.com/google/uuid"
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -65,13 +65,13 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	log.Printf("Sending identity response to %s. Message id: %s...", s.Conn().RemotePeer(), data.MessageData.Id)
 
 	// List identity index
-	subjectHash := &SubjectHash{hash: data.SubjectHash}
+	subjectHash := subject.Hash(data.SubjectHash)
 	var identityHashes [][]byte
-	for _, h := range sp.node.GetIdentityHashes(subjectHash) {
+	for _, h := range sp.node.GetIdentityHashes(&subjectHash) {
 		identityHashes = append(identityHashes, h.hash)
 	}
 	resp := &pb.IdentityResponse{MessageData: sp.node.NewMessageData(data.MessageData.Id, false),
-		Message: fmt.Sprintf("Identity response from %s", sp.node.ID()), SubjectHash: subjectHash.hash, IdentityHashes: identityHashes}
+		Message: fmt.Sprintf("Identity response from %s", sp.node.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -118,8 +118,8 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 
 	// Store all identityHash
 
-	subjectHash := &SubjectHash{hash: data.SubjectHash}
-	identityHashSet, ok := sp.node.identityIndex.Index[subjectHash.hex()]
+	subjectHash := subject.Hash(data.SubjectHash)
+	identityHashSet, ok := sp.node.identityIndex.Index[subjectHash.Hex()]
 	if !ok {
 		identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
 	}
@@ -127,8 +127,8 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 		identityHash := &IdentityHash{hash: idhash}
 		identityHashSet.set[identityHash.hex()] = ""
 	}
-	fmt.Println("***", subjectHash.hex())
-	sp.node.identityIndex.Index[subjectHash.hex()] = identityHashSet
+	fmt.Println("***", subjectHash.Hex())
+	sp.node.identityIndex.Index[subjectHash.Hex()] = identityHashSet
 
 	// locate request data and remove it if found
 	_, ok = sp.requests[data.MessageData.Id]
@@ -145,12 +145,12 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 }
 
 // GetIdentityIndexFromPeer ...
-func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash *SubjectHash) bool {
+func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash *subject.Hash) bool {
 	log.Printf("Sending identity request to: %s....", peerID)
 
 	// create message data
 	req := &pb.IdentityRequest{MessageData: sp.node.NewMessageData(uuid.New().String(), false),
-		Message: fmt.Sprintf("Identity request from %s", sp.node.ID()), SubjectHash: subjectHash.hash}
+		Message: fmt.Sprintf("Identity request from %s", sp.node.ID()), SubjectHash: subjectHash.Byte()}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(req)
