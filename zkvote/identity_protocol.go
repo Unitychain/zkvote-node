@@ -9,6 +9,7 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/unitychain/zkvote-node/zkvote/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
 	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
@@ -68,7 +69,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	subjectHash := subject.Hash(data.SubjectHash)
 	var identityHashes [][]byte
 	for _, h := range sp.node.GetIdentityHashes(&subjectHash) {
-		identityHashes = append(identityHashes, h.hash)
+		identityHashes = append(identityHashes, h.Byte())
 	}
 	resp := &pb.IdentityResponse{MessageData: sp.node.NewMessageData(data.MessageData.Id, false),
 		Message: fmt.Sprintf("Identity response from %s", sp.node.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
@@ -119,16 +120,16 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// Store all identityHash
 
 	subjectHash := subject.Hash(data.SubjectHash)
-	identityHashSet, ok := sp.node.identityIndex.Index[subjectHash.Hex()]
+	identityHashSet, ok := sp.node.identityIndex[subjectHash.Hex()]
 	if !ok {
-		identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
+		identityHashSet = identity.NewHashSet()
 	}
 	for _, idhash := range data.IdentityHashes {
-		identityHash := &IdentityHash{hash: idhash}
-		identityHashSet.set[identityHash.hex()] = ""
+		identityHash := identity.Hash(idhash)
+		identityHashSet[identityHash.Hex()] = ""
 	}
 	fmt.Println("***", subjectHash.Hex())
-	sp.node.identityIndex.Index[subjectHash.Hex()] = identityHashSet
+	sp.node.identityIndex[subjectHash.Hex()] = identityHashSet
 
 	// locate request data and remove it if found
 	_, ok = sp.requests[data.MessageData.Id]
