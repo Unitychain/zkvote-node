@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/ipfs/go-datastore"
+	"github.com/unitychain/zkvote-node/zkvote/identity"
 	"github.com/unitychain/zkvote-node/zkvote/subject"
 	"github.com/whyrusleeping/base32"
 )
@@ -16,7 +17,7 @@ type Store struct {
 	*Node
 	collectedSubjects subject.Map
 	createdSubjects   subject.Map
-	identityIndex     IdentityIndex
+	identityIndex     identity.Index
 }
 
 // NewStore ...
@@ -25,7 +26,7 @@ func NewStore(node *Node) (*Store, error) {
 		Node:              node,
 		collectedSubjects: subject.NewMap(),
 		createdSubjects:   subject.NewMap(),
-		identityIndex:     IdentityIndex{Index: make(map[subject.HashHex]*IdentityHashSet)},
+		identityIndex:     identity.NewIndex(),
 	}
 
 	return store, nil

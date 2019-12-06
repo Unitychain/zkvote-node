@@ -6,6 +6,7 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/manifoldco/promptui"
+	"github.com/unitychain/zkvote-node/zkvote/identity"
 	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
@@ -106,18 +107,14 @@ func (voter *Voter) Register(subjectHashHex string, identityCommitmentHex string
 	}
 	subjectHash := subject.Hash(subHash)
 
-	idHash, err := hex.DecodeString(identityCommitmentHex)
-	if err != nil {
-		return err
-	}
-	identity := &Identity{commitment: idHash}
+	identity := identity.NewIdentity(identityCommitmentHex)
 
 	voterSubscription := voter.subscriptions[subjectHash.Hex()]
 	identitySubscription := voterSubscription.identitySubscription
 	identityTopic := identitySubscription.Topic()
 
 	// Publish identity hash
-	voter.pubsub.Publish(identityTopic, identity.hash().hash)
+	voter.pubsub.Publish(identityTopic, identity.Hash().Byte())
 
 	return nil
 }
@@ -199,18 +196,18 @@ func (voter *Voter) SyncIdentityIndex() error {
 }
 
 // GetIdentityHashes ...
-func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []*IdentityHash {
-	identityHashSet, ok := voter.identityIndex.Index[subjectHash.Hex()]
+func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []identity.Hash {
+	identityHashSet, ok := voter.identityIndex[subjectHash.Hex()]
 	if !ok {
-		identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
+		identityHashSet = identity.NewHashSet()
 	}
-	list := make([]*IdentityHash, 0)
-	for hx := range identityHashSet.set {
-		h, err := hex.DecodeString(hx.hex)
+	list := make([]identity.Hash, 0)
+	for hx := range identityHashSet {
+		h, err := hex.DecodeString(hx.String())
 		if err != nil {
 			fmt.Println(err)
 		}
-		list = append(list, &IdentityHash{hash: h})
+		list = append(list, identity.Hash(h))
 	}
 	return list
 }
@@ -237,16 +234,16 @@ func identitySubHandler(voter *Voter, subjectHash *subject.Hash, subscription *p
 			return
 		}
 		voter.Lock()
-		identityHash := &IdentityHash{hash: m.GetData()}
+		identityHash := identity.Hash(m.GetData())
 
 		fmt.Println("identitySubHandler: Received message")
 
-		identityHashSet, ok := voter.identityIndex.Index[subjectHash.Hex()]
+		identityHashSet, ok := voter.identityIndex[subjectHash.Hex()]
 		if !ok {
-			identityHashSet = &IdentityHashSet{set: make(map[IdentityHashHex]string)}
+			identityHashSet = identity.NewHashSet()
 		}
-		identityHashSet.set[identityHash.hex()] = ""
-		voter.identityIndex.Index[subjectHash.Hex()] = identityHashSet
+		identityHashSet[identityHash.Hex()] = ""
+		voter.identityIndex[subjectHash.Hex()] = identityHashSet
 		voter.Unlock()
 	}
 }

@@ -38,16 +38,13 @@ func NewSubject(title string, description string) *Subject {
 
 // NewMap ...
 func NewMap() Map {
-	var result Map
-	result = Map(make(map[HashHex]*Subject))
-	return result
+	return Map(make(map[HashHex]*Subject))
 }
 
 // Hash ...
 func (s *Subject) Hash() *Hash {
 	h := sha256.Sum256([]byte(s.title + s.description))
 	result := Hash(h[:])
-
 	return &result
 }
 

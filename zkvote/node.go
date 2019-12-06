@@ -180,7 +180,7 @@ func (node *Node) Info() error {
 	fmt.Println(node.collectedSubjects)
 
 	fmt.Println("IdentityIndex:")
-	for k, set := range node.identityIndex.Index {
+	for k, set := range node.identityIndex {
 		fmt.Println(k)
 		fmt.Println(set)
 	}
