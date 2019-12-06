@@ -172,8 +172,8 @@ func (node *Node) Info() error {
 	fmt.Println(len(node.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
-	for sh := range node.createdSubjects.Map {
-		fmt.Println(sh.hex)
+	for sh := range node.createdSubjects {
+		fmt.Println(sh)
 	}
 
 	fmt.Println("Collected subjects:")

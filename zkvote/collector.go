@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/peer"
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // Collector ...
@@ -96,15 +97,15 @@ func (collector *Collector) GetJoinedSubjectTitles() []string {
 }
 
 // GetCollectedSubjects ...
-func (collector *Collector) GetCollectedSubjects() *SubjectMap {
+func (collector *Collector) GetCollectedSubjects() subject.Map {
 	return collector.collectedSubjects
 }
 
 // GetCollectedSubjectTitles ...
 func (collector *Collector) GetCollectedSubjectTitles() []string {
 	titles := make([]string, 0)
-	for _, subject := range collector.collectedSubjects.Map {
-		titles = append(titles, subject.title)
+	for _, s := range collector.collectedSubjects {
+		titles = append(titles, s.GetTitle())
 	}
 
 	return titles

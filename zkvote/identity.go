@@ -3,6 +3,8 @@ package zkvote
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // Identity ...
@@ -17,7 +19,7 @@ type IdentityHash struct {
 
 // IdentityIndex ...
 type IdentityIndex struct {
-	Index map[SubjectHashHex]*IdentityHashSet
+	Index map[subject.HashHex]*IdentityHashSet
 }
 
 // IdentityHashSet ...

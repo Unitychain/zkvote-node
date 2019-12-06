@@ -11,6 +11,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -119,9 +120,9 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 
 	// Store all topics
 	for _, sub := range data.Subjects {
-		subject := &Subject{title: sub.Title, description: sub.Description}
-		subjectMap := sp.node.collectedSubjects.Map
-		subjectMap[subject.hash().hex()] = subject
+		subject := subject.NewSubject(sub.Title, sub.Description)
+		subjectMap := sp.node.collectedSubjects
+		subjectMap[subject.Hash().Hex()] = subject
 	}
 
 	// locate request data and remove it if found
