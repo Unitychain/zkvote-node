@@ -22,15 +22,13 @@ const subjectResponse = "/subject/res/0.0.1"
 type SubjectProtocol struct {
 	node     *Node
 	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
-	done     chan bool                     // only for demo purposes to stop main from terminating
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(node *Node, done chan bool) *SubjectProtocol {
+func NewSubjectProtocol(node *Node) *SubjectProtocol {
 	sp := &SubjectProtocol{
 		node:     node,
 		requests: make(map[string]*pb.SubjectRequest),
-		done:     done,
 	}
 	node.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
 	node.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
@@ -69,11 +67,11 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	// generate response message
 	log.Printf("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
-	// List subscribed topics
+	// List created subjects
 	subjects := make([]*pb.Subject, 0)
-	for _, t := range sp.node.pubsub.GetTopics() {
-		s := &pb.Subject{Title: t, Description: "foobar"}
-		subjects = append(subjects, s)
+	for _, s := range sp.node.createdSubjects {
+		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription()}
+		subjects = append(subjects, subject)
 	}
 
 	resp := &pb.SubjectResponse{Metadata: sp.node.NewMetadata(data.Metadata.Id, false),
@@ -99,6 +97,8 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 
 // remote ping response handler
 func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
+	results := make([]*subject.Subject, 0)
+
 	data := &pb.SubjectResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -127,6 +127,7 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 		subject := subject.NewSubject(sub.Title, sub.Description)
 		subjectMap := sp.node.collectedSubjects
 		subjectMap[subject.Hash().Hex()] = subject
+		results = append(results, subject)
 	}
 
 	// locate request data and remove it if found
@@ -138,9 +139,8 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 		log.Println("Failed to locate request data boject for response")
 		return
 	}
-
 	log.Printf("Received subject response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
-	sp.done <- true
+	sp.node.subjectProtocolCh <- results
 }
 
 // GetCreatedSubjects ...
