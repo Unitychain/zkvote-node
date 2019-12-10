@@ -1,0 +1,99 @@
+package voter
+
+import (
+	"fmt"
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestInitValue(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new merkle tree instance error")
+
+	expectedRoot, _ := big.NewInt(0).SetString("3045810468960591087191210641638281907572011303565471692703782899879208219595", 10)
+	assert.Equal(t, expectedRoot, tree.GetRoot())
+}
+
+func TestInsert(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new merkle tree instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(idc)
+	assert.Nil(t, err, "insert error")
+	assert.Equal(t, 0, idx)
+
+	expectedRoot, _ := big.NewInt(0).SetString("10111617666581036340448951058247444724829868269511567274283008165012911962845", 10)
+	assert.Equal(t, expectedRoot, tree.GetRoot())
+}
+
+func TestInsert_10IDs(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new merkle tree instance error")
+
+	for i := 0; i < 10; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idx, err := tree.Insert(idc)
+		assert.Nil(t, err, "insert error")
+		assert.Equal(t, i, idx)
+	}
+	assert.Equal(t, "17338928618679723615927487343643862430017979402066728792155147641619567655241", tree.GetRoot().String())
+	// root := tree.GetRoot().String()
+	// fmt.Println("root, ", root)
+}
+
+func TestInsert_Double(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(idc)
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	idx, err = tree.Insert(idc)
+	assert.NotNil(t, err, "should not Insert successfully")
+}
+
+func TestTreeUpdate(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(idc)
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	err = tree.Update(uint(idx), idc, big.NewInt(100))
+	assert.Nil(t, err, "update error")
+	assert.Equal(t, "5460310977241109933677489518076160260038251578824953567893574814611260367966", tree.GetRoot().String())
+
+}
+
+func TestTreeUpdate_IncorrectIdx(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(idc)
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	err = tree.Update(1, idc, big.NewInt(100))
+	assert.NotNil(t, err, "update error")
+}
+
+func TestTreeUpdate_IncorrectContent(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(idc)
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	err = tree.Update(uint(idx), big.NewInt(100), big.NewInt(100))
+	assert.NotNil(t, err, "update error")
+}

@@ -8,16 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const idCommitment string = "13340458618778421339172160768420045586192754964779906616295828288105624722649"
+
 func TestRegister(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
-	expectedRoot, _ := big.NewInt(0).SetString("8689527539353720499147190441125863458163151721613317120863488267899702105029", 10)
+	expectedRoot, _ := big.NewInt(0).SetString("3045810468960591087191210641638281907572011303565471692703782899879208219595", 10)
 	assert.Equal(t, expectedRoot, id.tree.GetRoot())
 }
 
@@ -37,7 +39,7 @@ func TestRegister_Double(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
@@ -50,7 +52,7 @@ func TestUpdate(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
@@ -63,7 +65,7 @@ func TestUpdate_IncorrectIdx(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
@@ -76,7 +78,7 @@ func TestUpdate_IncorrectContent(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
@@ -89,10 +91,28 @@ func TestIsMember(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
-	idc, _ := big.NewInt(0).SetString("8754576736334110930938370425891433351958026259715678541049362293217590250071", 10)
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
 	idx, err := id.Register(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
-	assert.True(t, id.IsMember(idc))
+	assert.True(t, id.IsMember(id.tree.GetRoot()))
+}
+
+func TestIsMember2(t *testing.T) {
+	id, err := NewIdentityWithTreeLevel(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := id.Register(idc)
+	assert.Nil(t, err, "register error")
+	assert.Equal(t, 0, idx)
+	root1 := id.tree.GetRoot()
+
+	idx, err = id.Register(big.NewInt(10))
+	assert.Nil(t, err, "register error")
+	assert.Equal(t, 1, idx)
+
+	assert.True(t, id.IsMember(root1))
+	assert.True(t, id.IsMember(id.tree.GetRoot()))
 }
