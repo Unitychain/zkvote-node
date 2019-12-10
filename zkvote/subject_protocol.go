@@ -20,19 +20,17 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	node        *Node
-	requests    map[string]*pb.SubjectRequest // used to access request data from response handlers
-	done        chan bool                     // only for demo purposes to stop main from terminating
-	subjectChan chan *subject.Subject
+	node     *Node
+	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
+	done     chan bool                     // only for demo purposes to stop main from terminating
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(node *Node, done chan bool, subjectChan chan *subject.Subject) *SubjectProtocol {
+func NewSubjectProtocol(node *Node, done chan bool) *SubjectProtocol {
 	sp := &SubjectProtocol{
-		node:        node,
-		requests:    make(map[string]*pb.SubjectRequest),
-		done:        done,
-		subjectChan: subjectChan,
+		node:     node,
+		requests: make(map[string]*pb.SubjectRequest),
+		done:     done,
 	}
 	node.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
 	node.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
@@ -129,9 +127,6 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 		subject := subject.NewSubject(sub.Title, sub.Description)
 		subjectMap := sp.node.collectedSubjects
 		subjectMap[subject.Hash().Hex()] = subject
-
-		// Add subject to subjectChan
-		sp.subjectChan <- subject
 	}
 
 	// locate request data and remove it if found
