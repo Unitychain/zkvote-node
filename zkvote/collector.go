@@ -15,8 +15,9 @@ import (
 type Collector struct {
 	*Node
 	*SubjectProtocol
-	discovery discovery.Discovery
-	providers map[peer.ID]string
+	discovery         discovery.Discovery
+	providers         map[peer.ID]string
+	subjectProtocolCh chan []*subject.Subject
 }
 
 // NewCollector ...
@@ -25,13 +26,13 @@ func NewCollector(node *Node) (*Collector, error) {
 	rd := routingDiscovery.NewRoutingDiscovery(node.dht)
 
 	collector := &Collector{
-		Node:      node,
-		discovery: rd,
-		providers: make(map[peer.ID]string),
+		Node:              node,
+		discovery:         rd,
+		providers:         make(map[peer.ID]string),
+		subjectProtocolCh: make(chan []*subject.Subject, 10),
 	}
 
-	done := make(chan bool, 1)
-	collector.SubjectProtocol = NewSubjectProtocol(node, done)
+	collector.SubjectProtocol = NewSubjectProtocol(node)
 
 	return collector, nil
 }
@@ -52,40 +53,51 @@ func (collector *Collector) Announce() error {
 }
 
 // FindProposers ...
-func (collector *Collector) FindProposers() error {
+func (collector *Collector) FindProposers() (<-chan peer.AddrInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// defer cancel()
+	_ = cancel
 
 	peers, err := collector.discovery.FindPeers(ctx, "subjects")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for p := range peers {
-		fmt.Println("found peer", p)
-		collector.Peerstore().AddAddrs(p.ID, p.Addrs, 24*time.Hour)
-		collector.providers[p.ID] = ""
-	}
-
-	fmt.Println("Subject creators: ")
-	fmt.Println(collector.providers)
-	return err
+	return peers, err
 }
 
 // Collect ...
-func (collector *Collector) Collect() error {
-	// Find proposers first
-	collector.FindProposers()
+func (collector *Collector) Collect() (<-chan *subject.Subject, error) {
+	out := make(chan *subject.Subject, 100)
+	defer close(out)
 
-	for peer := range collector.providers {
-		// Ignore self ID
-		if peer == collector.ID() {
-			continue
-		}
-		collector.GetCreatedSubjects(peer)
+	proposers, err := collector.FindProposers()
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	return nil
+	var resultCount int
+
+	for peer := range proposers {
+		// Ignore self ID
+		if peer.ID == collector.ID() {
+			continue
+		}
+		fmt.Println("found peer", peer)
+		collector.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
+		collector.GetCreatedSubjects(peer.ID)
+
+		resultCount++
+	}
+
+	for i := 0; i < resultCount; i++ {
+		// Block here
+		results := <-collector.subjectProtocolCh
+		for _, subject := range results {
+			out <- subject
+		}
+	}
+	return out, nil
 }
 
 // GetJoinedSubjectTitles ...
