@@ -5,10 +5,9 @@ import (
 	"math"
 	"math/big"
 
+	hashWrapper "../crypto"
+	"../utils"
 	merkletree "github.com/cbergoon/merkletree"
-	mimc7 "github.com/iden3/go-iden3-crypto/mimc7"
-	mimcwrapper "github.com/unitychain/zkvote-node/zkvote/crypto"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
 //
@@ -47,6 +46,8 @@ type MerkleTree struct {
 
 	root    *big.Int
 	content []merkletree.Content
+
+	hashStrategy hashWrapper.HashWrapper
 }
 
 // NewMerkleTree ...
@@ -58,19 +59,21 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 	for i := 0; i < numIndexes; i++ {
 		content = append(content, TreeContent{big.NewInt(0)})
 	}
+	tree := &MerkleTree{
+		levels:       levels,
+		nextIndex:    0,
+		content:      content,
+		hashStrategy: hashWrapper.MiMC7New(),
+	}
 
-	root, err := calculateRoot(content)
+	root, err := tree.calculateRoot()
 	if err != nil {
 		return nil, err
 	}
+	tree.root = root
 
-	utils.LogInfof("total elements %d, init root: %v\n", numIndexes, root)
-	return &MerkleTree{
-		levels:    levels,
-		root:      root,
-		nextIndex: 0,
-		content:   content,
-	}, nil
+	utils.LogInfof("total elements %d, init root: %v", numIndexes, root)
+	return tree, nil
 }
 
 // Insert : insert into to the merkle tree
@@ -83,7 +86,7 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 	currentIndex := m.nextIndex
 	m.content[currentIndex] = TreeContent{value}
 
-	root, err := calculateRoot(m.content)
+	root, err := m.calculateRoot()
 	if err != nil {
 		return -1, err
 	}
@@ -109,7 +112,7 @@ func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 	}
 
 	m.content[index] = TreeContent{newValue}
-	root, err := calculateRoot(m.content)
+	root, err := m.calculateRoot()
 	if err != nil {
 		return err
 	}
@@ -147,36 +150,37 @@ func (m *MerkleTree) GetPath(value *big.Int) []byte {
 }
 
 // GetIntermediateValues : get all intermediate values of a leaf
-func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
+func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int) {
 
-	idx := m.getIndexByValue(value)
-	if idx == -1 {
-		utils.LogWarningf("Can NOT find index of value, %v", value)
-		return nil
+	var idx int
+	if nil == value {
+		idx = 0
+	} else {
+		idx = m.getIndexByValue(value)
+		if -1 == idx {
+			utils.LogWarningf("Can NOT find index of value, %v", value)
+			return nil, nil
+		}
 	}
-	currentIdx := idx
-	imv := make([]big.Int, m.levels)
 
-	tree := make([][]big.Int, m.levels)
+	currentIdx := idx
+	imv := make([]*big.Int, m.levels)
+	tree := make([][]*big.Int, m.levels)
 	for i := 0; i < int(m.levels); i++ {
 
 		numElemofLevel := int(math.Pow(2, float64(int(m.levels)-i)))
-		valuesOfLevel := make([]big.Int, numElemofLevel)
+		valuesOfLevel := make([]*big.Int, numElemofLevel)
 		for j := 0; j < numElemofLevel; j++ {
 			if 0 == i {
-				if idx == j {
-					valuesOfLevel[j] = *value
-				} else {
-					valuesOfLevel[j] = *m.content[j].(TreeContent).x
-				}
+				h, _ := m.content[j].CalculateHash()
+				valuesOfLevel[j] = big.NewInt(0).SetBytes(h)
 			} else {
-				h, e := mimc7.Hash([]*big.Int{&tree[i-1][2*j], &tree[i-1][2*j+1]}, nil)
-				if e != nil {
-					utils.LogWarningf("ERROR: calculate mimc7 error, %v", e.Error())
-					return nil
+				h, err := m.hashStrategy.Hash([]*big.Int{tree[i-1][2*j], tree[i-1][2*j+1], big.NewInt(0)})
+				if err != nil {
+					utils.LogFatalf("ERROR: calculate mimc7 error, %v", err.Error())
+					return nil, nil
 				}
-				valuesOfLevel[j] = *h
-				// fmt.Printf("%x-%x --> %x\n", &tree[i-1][2*j], &tree[i-1][2*j+1], &valuesOfLevel[j])
+				valuesOfLevel[j] = h
 			}
 		}
 
@@ -185,11 +189,20 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) []big.Int {
 		} else {
 			imv[i] = valuesOfLevel[currentIdx-1]
 		}
+		// for j, v := range valuesOfLevel {
+		// 	utils.LogDebugf("%d - %v\n", j, v)
+		// }
 		// utils.LogDebugf("%v\n", &imv[i])
 		tree[i] = valuesOfLevel
 		currentIdx = int(currentIdx / 2)
 	}
-	return imv
+
+	root, err := m.hashStrategy.Hash([]*big.Int{tree[m.levels-1][0], tree[m.levels-1][1], big.NewInt(0)})
+	if err != nil {
+		utils.LogFatalf("ERROR: calculate root through mimc7 error, %v", err.Error())
+		return nil, nil
+	}
+	return imv, root
 }
 
 // IsExisted ...
@@ -213,15 +226,8 @@ func (m *MerkleTree) getIndexByValue(value *big.Int) int {
 	return -1
 }
 
-func calculateRoot(content []merkletree.Content) (*big.Int, error) {
+func (m *MerkleTree) calculateRoot() (*big.Int, error) {
 
-	var hashStrategy = mimcwrapper.MiMC7New
-	tree, err := merkletree.NewTreeWithHashStrategy(content, hashStrategy)
-	if err != nil {
-		utils.LogErrorf("init merkle tree error, %v", err.Error())
-		return nil, err
-	}
-
-	root := big.NewInt(0).SetBytes(tree.MerkleRoot())
+	_, root := m.GetIntermediateValues(nil)
 	return root, nil
 }
