@@ -240,9 +240,9 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	return nil
 }
 
-// NewMessageData helper method - generate message data shared between all node's p2p protocols
+// NewMetadata helper method - generate message data shared between all node's p2p protocols
 // messageId: unique for requests, copied from request for responses
-func (node *Node) NewMessageData(messageID string, gossip bool) *subject.MessageData {
+func (node *Node) NewMetadata(messageID string, gossip bool) *subject.Metadata {
 	// Add protobufs bin data for message author public key
 	// this is useful for authenticating  messages forwarded by a node authored by another node
 	nodePubKey, err := node.Peerstore().PubKey(node.ID()).Bytes()
@@ -251,7 +251,7 @@ func (node *Node) NewMessageData(messageID string, gossip bool) *subject.Message
 		panic("Failed to get public key for sender from local peer store.")
 	}
 
-	return &subject.MessageData{ClientVersion: clientVersion,
+	return &subject.Metadata{ClientVersion: clientVersion,
 		NodeId:     peer.IDB58Encode(node.ID()),
 		NodePubKey: nodePubKey,
 		Timestamp:  time.Now().Unix(),
