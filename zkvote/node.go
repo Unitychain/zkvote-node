@@ -494,9 +494,28 @@ func (node *Node) handleAnnounce() error {
 }
 
 func (node *Node) handleFindProposers() error {
-	return node.FindProposers()
+	peers, err := node.FindProposers()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for p := range peers {
+		fmt.Println("found peer", p)
+		node.providers[p.ID] = ""
+	}
+
+	return nil
 }
 
 func (node *Node) handleCollect() error {
-	return node.Collect()
+	subjects, err := node.Collect()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for subject := range subjects {
+		fmt.Println("Collect: ", subject)
+	}
+
+	return nil
 }
