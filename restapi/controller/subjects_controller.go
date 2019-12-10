@@ -9,6 +9,7 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/model"
 	"github.com/unitychain/zkvote-node/zkvote"
+	"github.com/unitychain/zkvote-node/zkvote/subject"
 	// 	"errors"
 )
 
@@ -59,20 +60,27 @@ func (c *Controller) QuerySubjects(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	c.Collector.Collect()
-
-	results := c.Collector.GetCollectedSubjects()
-	fmt.Println(results)
+	subjects, err := c.Collector.Collect()
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
+
+	results := chToJSON(subjects)
 
 	response := model.QuerySubjectsResponse{
 		Results: results,
 	}
 
 	c.writeResponse(rw, response)
+}
+
+func chToJSON(ch <-chan *subject.Subject) map[string]map[string]string {
+	result := make(map[string]map[string]string)
+	for s := range ch {
+		result[s.Hash().Hex().String()] = s.JSON()
+	}
+	return result
 }
 
 // writeGenericError writes given error to writer as generic error response

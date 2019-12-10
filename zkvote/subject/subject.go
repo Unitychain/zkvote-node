@@ -48,6 +48,14 @@ func (s *Subject) Hash() *Hash {
 	return &result
 }
 
+// JSON ...
+func (s *Subject) JSON() map[string]string {
+	return map[string]string{
+		"title":       s.title,
+		"description": s.description,
+	}
+}
+
 // GetTitle ...
 func (s *Subject) GetTitle() string {
 	return s.title
