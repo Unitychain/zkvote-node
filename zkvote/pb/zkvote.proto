@@ -6,14 +6,14 @@ package protocols.zkvote;
 
 // a protocol define a set of reuqest and responses
 message SubjectRequest {
-    MessageData messageData = 1;
+    Metadata metadata = 1;
 
     // method specific data
     string message = 2;
 }
 
 message SubjectResponse {
-    MessageData messageData = 1;
+    Metadata metadata = 1;
 
     // response specific data
     string message = 2;
@@ -29,7 +29,7 @@ message Subject {
 
 // a protocol define a set of reuqest and responses
 message IdentityRequest {
-    MessageData messageData = 1;
+    Metadata metadata = 1;
 
     // method specific data
     string message = 2;
@@ -37,7 +37,7 @@ message IdentityRequest {
 }
 
 message IdentityResponse {
-    MessageData messageData = 1;
+    Metadata metadata = 1;
 
     // response specific data
     string message = 2;
@@ -46,7 +46,7 @@ message IdentityResponse {
 }
 
 // designed to be shared between all app protocols
-message MessageData {
+message Metadata {
     // shared between all requests
     string clientVersion = 1; // client version
     int64 timestamp = 2;     // unix time

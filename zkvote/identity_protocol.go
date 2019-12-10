@@ -55,7 +55,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 
 	log.Printf("Received identity request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
-	// valid := p.node.authenticateMessage(data, data.MessageData)
+	// valid := p.node.authenticateMessage(data, data.Metadata)
 
 	// if !valid {
 	// 	log.Println("Failed to authenticate message")
@@ -63,7 +63,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// }
 
 	// generate response message
-	log.Printf("Sending identity response to %s. Message id: %s...", s.Conn().RemotePeer(), data.MessageData.Id)
+	log.Printf("Sending identity response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
@@ -71,7 +71,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	for _, h := range sp.node.GetIdentityHashes(&subjectHash) {
 		identityHashes = append(identityHashes, h.Byte())
 	}
-	resp := &pb.IdentityResponse{MessageData: sp.node.NewMessageData(data.MessageData.Id, false),
+	resp := &pb.IdentityResponse{Metadata: sp.node.NewMetadata(data.Metadata.Id, false),
 		Message: fmt.Sprintf("Identity response from %s", sp.node.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
 
 	// sign the data
@@ -82,7 +82,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// }
 
 	// add the signature to the message
-	// resp.MessageData.Sign = signature
+	// resp.Metadata.Sign = signature
 
 	// send the response
 	ok := sp.node.sendProtoMessage(s.Conn().RemotePeer(), identityResponse, resp)
@@ -110,7 +110,7 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 		return
 	}
 
-	// valid := p.node.authenticateMessage(data, data.MessageData)
+	// valid := p.node.authenticateMessage(data, data.Metadata)
 
 	// if !valid {
 	// 	log.Println("Failed to authenticate message")
@@ -132,16 +132,16 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	sp.node.identityIndex[subjectHash.Hex()] = identityHashSet
 
 	// locate request data and remove it if found
-	_, ok = sp.requests[data.MessageData.Id]
+	_, ok = sp.requests[data.Metadata.Id]
 	if ok {
 		// remove request from map as we have processed it here
-		delete(sp.requests, data.MessageData.Id)
+		delete(sp.requests, data.Metadata.Id)
 	} else {
 		log.Println("Failed to locate request data boject for response")
 		return
 	}
 
-	log.Printf("Received identity response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.MessageData.Id, data.Message)
+	log.Printf("Received identity response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
 	sp.done <- true
 }
 
@@ -150,7 +150,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	log.Printf("Sending identity request to: %s....", peerID)
 
 	// create message data
-	req := &pb.IdentityRequest{MessageData: sp.node.NewMessageData(uuid.New().String(), false),
+	req := &pb.IdentityRequest{Metadata: sp.node.NewMetadata(uuid.New().String(), false),
 		Message: fmt.Sprintf("Identity request from %s", sp.node.ID()), SubjectHash: subjectHash.Byte()}
 
 	// sign the data
@@ -161,7 +161,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	// }
 
 	// add the signature to the message
-	// req.MessageData.Sign = signature
+	// req.Metadata.Sign = signature
 
 	ok := sp.node.sendProtoMessage(peerID, identityRequest, req)
 	if !ok {
@@ -169,7 +169,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	}
 
 	// store ref request so response handler has access to it
-	sp.requests[req.MessageData.Id] = req
-	log.Printf("Identity request to: %s was sent. Message Id: %s, Message: %s", peerID, req.MessageData.Id, req.Message)
+	sp.requests[req.Metadata.Id] = req
+	log.Printf("Identity request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }
