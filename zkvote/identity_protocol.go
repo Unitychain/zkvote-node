@@ -9,9 +9,9 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/unitychain/zkvote-node/zkvote/identity"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

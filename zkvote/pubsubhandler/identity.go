@@ -1,10 +1,9 @@
-package identity
+package pubsubhandler
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/unitychain/zkvote-node/zkvote/subject"
 )
 
 // Identity ...

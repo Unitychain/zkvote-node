@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/unitychain/zkvote-node/zkvote/identity"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 	"github.com/whyrusleeping/base32"
 )
 

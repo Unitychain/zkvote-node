@@ -11,7 +11,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

@@ -5,7 +5,7 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/unitychain/zkvote-node/zkvote/snark"
-	"github.com/unitychain/zkvote-node/zkvote/identity"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 

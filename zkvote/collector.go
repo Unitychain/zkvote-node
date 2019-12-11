@@ -8,7 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/peer"
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // Collector ...

@@ -6,8 +6,8 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/manifoldco/promptui"
-	"github.com/unitychain/zkvote-node/zkvote/identity"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // Voter ...
