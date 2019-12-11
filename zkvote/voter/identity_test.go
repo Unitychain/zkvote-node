@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const idCommitment string = "13340458618778421339172160768420045586192754964779906616295828288105624722649"
+const idCommitment string = "17610192990552485611214212559447309706539616482639833145108503521837267798810"
 
 func TestRegister(t *testing.T) {
 	id, err := NewIdentityWithTreeLevel(10)
@@ -19,7 +19,7 @@ func TestRegister(t *testing.T) {
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
-	expectedRoot, _ := big.NewInt(0).SetString("3045810468960591087191210641638281907572011303565471692703782899879208219595", 10)
+	expectedRoot, _ := big.NewInt(0).SetString("1603056697422863699573935817849018482475219731925672640724433076363786113", 10)
 	assert.Equal(t, expectedRoot, id.tree.GetRoot())
 }
 

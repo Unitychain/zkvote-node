@@ -25,7 +25,7 @@ func TestInsert(t *testing.T) {
 	assert.Nil(t, err, "insert error")
 	assert.Equal(t, 0, idx)
 
-	expectedRoot, _ := big.NewInt(0).SetString("10111617666581036340448951058247444724829868269511567274283008165012911962845", 10)
+	expectedRoot, _ := big.NewInt(0).SetString("1603056697422863699573935817849018482475219731925672640724433076363786113", 10)
 	assert.Equal(t, expectedRoot, tree.GetRoot())
 }
 
@@ -39,7 +39,7 @@ func TestInsert_10IDs(t *testing.T) {
 		assert.Nil(t, err, "insert error")
 		assert.Equal(t, i, idx)
 	}
-	assert.Equal(t, "17338928618679723615927487343643862430017979402066728792155147641619567655241", tree.GetRoot().String())
+	assert.Equal(t, "1445582704315932794177642993412188437980560505275108425483448780308059834769", tree.GetRoot().String())
 	// root := tree.GetRoot().String()
 	// fmt.Println("root, ", root)
 }
@@ -68,7 +68,7 @@ func TestTreeUpdate(t *testing.T) {
 
 	err = tree.Update(uint(idx), idc, big.NewInt(100))
 	assert.Nil(t, err, "update error")
-	assert.Equal(t, "5460310977241109933677489518076160260038251578824953567893574814611260367966", tree.GetRoot().String())
+	assert.Equal(t, "5860034871856545585778554733050920915757269722014984975581566802595274325429", tree.GetRoot().String())
 
 }
 

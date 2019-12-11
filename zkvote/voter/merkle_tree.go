@@ -5,8 +5,8 @@ import (
 	"math"
 	"math/big"
 
-	hashWrapper "../crypto"
-	"../utils"
+	hashWrapper "github.com/unitychain/zkvote-node/zkvote/crypto"
+	"github.com/unitychain/zkvote-node/zkvote/utils"
 	merkletree "github.com/cbergoon/merkletree"
 )
 
