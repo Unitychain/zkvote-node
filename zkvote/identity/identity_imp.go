@@ -1,4 +1,4 @@
-package voter
+package identity
 
 import (
 	"math/big"
@@ -6,8 +6,8 @@ import (
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
-// Identity ...
-type Identity struct {
+// IdentityImp ...
+type IdentityImp struct {
 	rootHistory []*big.Int
 	tree        *MerkleTree
 }
@@ -15,13 +15,12 @@ type Identity struct {
 const TREE_LEVEL uint8 = 10
 
 // NewIdentity ...
-func NewIdentity() (*Identity, error) {
-
+func NewIdentity() (*IdentityImp, error) {
 	return NewIdentityWithTreeLevel(TREE_LEVEL)
 }
 
 // NewIdentityWithTreeLevel ...
-func NewIdentityWithTreeLevel(treeLevel uint8) (*Identity, error) {
+func NewIdentityWithTreeLevel(treeLevel uint8) (*IdentityImp, error) {
 	tree, err := NewMerkleTree(treeLevel)
 	if err != nil {
 		return nil, err
@@ -30,14 +29,14 @@ func NewIdentityWithTreeLevel(treeLevel uint8) (*Identity, error) {
 
 	// TODO: load from DHT/PubSub
 
-	return &Identity{
+	return &IdentityImp{
 		rootHistory: rootHistory,
 		tree:        tree,
 	}, nil
 }
 
 // Register : register id
-func (i *Identity) Register(idCommitment *big.Int) (int, error) {
+func (i *IdentityImp) Register(idCommitment *big.Int) (int, error) {
 	idx, err := i.tree.Insert(idCommitment)
 	if err != nil {
 		utils.LogErrorf("register error, %v", err.Error())
@@ -49,7 +48,7 @@ func (i *Identity) Register(idCommitment *big.Int) (int, error) {
 }
 
 // Update : update id
-func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
+func (i *IdentityImp) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
 	err := i.tree.Update(index, oldIDCommitment, newIDCommitment)
 	if err != nil {
 		utils.LogErrorf("update id error, %v", err.Error())
@@ -61,7 +60,7 @@ func (i *Identity) Update(index uint, oldIDCommitment, newIDCommitment *big.Int)
 }
 
 // IsMember : check if the merkle root is in the root list or not
-func (i *Identity) IsMember(root *big.Int) bool {
+func (i *IdentityImp) IsMember(root *big.Int) bool {
 	for _, r := range i.rootHistory {
 		if 0 == r.Cmp(root) {
 			return true
@@ -73,6 +72,7 @@ func (i *Identity) IsMember(root *big.Int) bool {
 //
 // Internal functions
 //
-func (i *Identity) appendRoot(r *big.Int) {
+func (i *IdentityImp) appendRoot(r *big.Int) {
 	i.rootHistory = append(i.rootHistory, i.tree.GetRoot())
+}
 }
