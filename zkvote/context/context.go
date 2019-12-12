@@ -1,4 +1,4 @@
-package zkvote
+package context
 
 import (
 	"context"
