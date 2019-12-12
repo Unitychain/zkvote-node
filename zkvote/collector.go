@@ -90,6 +90,7 @@ func (collector *Collector) Collect() (<-chan *subject.Subject, error) {
 		resultCount++
 	}
 
+	// TODO: refactor to non-blocking
 	for i := 0; i < resultCount; i++ {
 		// Block here
 		results := <-collector.subjectProtocolCh
