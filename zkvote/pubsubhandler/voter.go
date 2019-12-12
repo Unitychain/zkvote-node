@@ -8,8 +8,9 @@ import (
 	"github.com/manifoldco/promptui"
 
 	localContext "github.com/unitychain/zkvote-node/zkvote/context"
-	identity "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	subject "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
+	voterPack "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
 )
 
 // Voter ...
@@ -124,7 +125,7 @@ func (voter *Voter) Register(subjectHashHex string, identityCommitmentHex string
 	}
 	subjectHash := subject.Hash(subHash)
 
-	identity := identity.NewIdentity(identityCommitmentHex)
+	identity := voterPack.NewIdentity(identityCommitmentHex)
 
 	voterSubscription := voter.subscriptions[subjectHash.Hex()]
 	identitySubscription := voterSubscription.identitySubscription
@@ -218,34 +219,34 @@ func (voter *Voter) GetSubscriptions() map[subject.HashHex]*VoterSubscription {
 }
 
 // GetIdentityHashes ...
-func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []identity.Hash {
-	identityHashSet := voter.Cache.GetAIDIndex(string(subjectHash.Hex()))
+func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []voter.Hash {
+	identityHashSet := voter.Cache.GetAIDIndex(subjectHash.Hex())
 	if nil == identityHashSet {
-		identityHashSet = identity.NewHashSet()
+		identityHashSet = voterPack.NewHashSet()
 	}
-	list := make([]identity.Hash, 0)
+	list := make([]voterPack.Hash, 0)
 	for hx := range identityHashSet {
 		h, err := hex.DecodeString(hx.String())
 		if err != nil {
 			fmt.Println(err)
 		}
-		list = append(list, identity.Hash(h))
+		list = append(list, voterPack.Hash(h))
 	}
 	return list
 }
 
 // InsertIdentity .
-func (v *Voter) InsertIdentity(subjectHash *subject.Hash, identityHash identity.Hash) {
+func (v *Voter) InsertIdentity(subjectHash *subject.Hash, identityHash voter.Hash) {
 	v.Mutex.Lock()
 	// identityHash := identity.Hash(msg.GetData())
 	fmt.Println("identitySubHandler: Received message")
 
-	identityHashSet := v.Cache.GetAIDIndex(string(subjectHash.Hex()))
+	identityHashSet := v.Cache.GetAIDIndex(subjectHash.Hex())
 	if nil == identityHashSet {
-		identityHashSet = identity.NewHashSet()
+		identityHashSet = voter.NewHashSet()
 	}
 	identityHashSet[identityHash.Hex()] = "ID"
-	v.Cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
+	v.Cache.InsertIDIndex(subjectHash.Hex(), identityHashSet)
 	v.Mutex.Unlock()
 }
 
@@ -272,7 +273,7 @@ func identitySubHandler(voter *Voter, subjectHash *subject.Hash, subscription *p
 			return
 		}
 		_ = m
-		identityHash := identity.Hash(m.GetData())
+		identityHash := voterPack.Hash(m.GetData())
 		voter.InsertIdentity(subjectHash, identityHash)
 		// voter.Mutex.Lock()
 		// identityHash := identity.Hash(m.GetData())

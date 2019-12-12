@@ -10,18 +10,19 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	ipns "github.com/ipfs/go-ipns"
+
 	"github.com/libp2p/go-libp2p"
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
 	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
+
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
 	localContext "github.com/unitychain/zkvote-node/zkvote/context"

@@ -16,8 +16,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-	identity "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
@@ -132,7 +132,7 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
 	for _, idhash := range data.IdentityHashes {
-		sp.voter.InsertIdentity(&subjectHash, identity.Hash(idhash))
+		sp.voter.InsertIdentity(&subjectHash, voter.Hash(idhash))
 	}
 	fmt.Println("***", subjectHash.Hex())
 

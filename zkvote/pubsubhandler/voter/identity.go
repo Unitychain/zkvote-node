@@ -1,8 +1,10 @@
-package identity
+package voter
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // Identity ...
@@ -27,13 +29,13 @@ func (h Hash) Hex() HashHex {
 }
 
 // Index ...
-type Index map[string]HashSet
+type Index map[subject.HashHex]HashSet
 
 // NewIndex ...
 func NewIndex() Index {
 	// TODO : workaround for cycle import
-	// return Index(make(map[subject.HashHex]HashSet))
-	return Index(make(map[string]HashSet))
+	return Index(make(map[subject.HashHex]HashSet))
+	// return Index(make(map[string]HashSet))
 }
 
 // HashSet ...

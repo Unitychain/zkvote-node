@@ -1,4 +1,4 @@
-package identity
+package voter
 
 import (
 	"math/big"

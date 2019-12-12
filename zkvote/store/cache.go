@@ -1,15 +1,15 @@
 package store
 
 import (
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
 )
 
 // Cache ...
 type Cache struct {
 	collectedSubjects subject.Map
 	createdSubjects   subject.Map
-	identityIndex     identity.Index
+	identityIndex     voter.Index
 }
 
 // NewCache ...
@@ -17,7 +17,7 @@ func NewCache() (*Cache, error) {
 	return &Cache{
 		collectedSubjects: subject.NewMap(),
 		createdSubjects:   subject.NewMap(),
-		identityIndex:     identity.NewIndex(),
+		identityIndex:     voter.NewIndex(),
 	}, nil
 }
 
@@ -52,16 +52,16 @@ func (c *Cache) GetACreatedSubject(k subject.HashHex) *subject.Subject {
 }
 
 // InsertIDIndex .
-func (c *Cache) InsertIDIndex(k string, v identity.HashSet) {
+func (c *Cache) InsertIDIndex(k subject.HashHex, v voter.HashSet) {
 	c.identityIndex[k] = v
 }
 
 //GetIDIndexes .
-func (c *Cache) GetIDIndexes() identity.Index {
+func (c *Cache) GetIDIndexes() voter.Index {
 	return c.identityIndex
 }
 
 // GetAIDIndex ...
-func (c *Cache) GetAIDIndex(k string) identity.HashSet {
+func (c *Cache) GetAIDIndex(k subject.HashHex) voter.HashSet {
 	return c.identityIndex[k]
 }
