@@ -13,6 +13,7 @@ import (
 	uuid "github.com/google/uuid"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -23,14 +24,16 @@ const subjectResponse = "/subject/res/0.0.1"
 type SubjectProtocol struct {
 	host      host.Host
 	collector *Collector
+	cache     *store.Cache
 	requests  map[string]*pb.SubjectRequest // used to access request data from response handlers
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(host host.Host, collector *Collector) *SubjectProtocol {
+func NewSubjectProtocol(host host.Host, collector *Collector, cache *store.Cache) *SubjectProtocol {
 	sp := &SubjectProtocol{
 		host:      host,
 		collector: collector,
+		cache:     cache,
 		requests:  make(map[string]*pb.SubjectRequest),
 	}
 	host.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
@@ -70,17 +73,16 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	// generate response message
 	log.Printf("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
-	// TODO: add store interface
 	// List created subjects
-	// subjects := make([]*pb.Subject, 0)
-	// for _, s := range sp.node.createdSubjects {
-	// 	subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription()}
-	// 	subjects = append(subjects, subject)
-	// }
-	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
-	// 	Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: subjects}
+	subjects := make([]*pb.Subject, 0)
+	for _, s := range sp.cache.GetCreatedSubjects() {
+		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription()}
+		subjects = append(subjects, subject)
+	}
 	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: nil}
+		Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: subjects}
+	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
+	// 	Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: nil}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -127,14 +129,13 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 	// 	return
 	// }
 
-	// TODO: add store interface
 	// Store all topics
-	// for _, sub := range data.Subjects {
-	// 	subject := subject.NewSubject(sub.Title, sub.Description)
-	// 	subjectMap := sp.host.collectedSubjects
-	// 	subjectMap[subject.Hash().Hex()] = subject
-	// 	results = append(results, subject)
-	// }
+	for _, sub := range data.Subjects {
+		subject := subject.NewSubject(sub.Title, sub.Description)
+		subjectMap := sp.cache.GetCollectedSubjects()
+		subjectMap[subject.Hash().Hex()] = subject
+		results = append(results, subject)
+	}
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]

@@ -12,6 +12,7 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // Collector ...
@@ -20,6 +21,7 @@ type Collector struct {
 	ctx               *context.Context
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
+	cache             *store.Cache
 	subjProtocol      *SubjectProtocol
 	discovery         discovery.Discovery
 	providers         map[peer.ID]string
@@ -32,6 +34,7 @@ func NewCollector(
 	ctx *context.Context,
 	pubsub *pubsub.PubSub,
 	dht *dht.IpfsDHT,
+	cache *store.Cache,
 ) (*Collector, error) {
 	// Discovery
 	rd := routingDiscovery.NewRoutingDiscovery(dht)
@@ -42,10 +45,11 @@ func NewCollector(
 		ps:                pubsub,
 		dht:               dht,
 		discovery:         rd,
+		cache:             cache,
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 	}
-	c.subjProtocol = NewSubjectProtocol(host, c)
+	c.subjProtocol = NewSubjectProtocol(host, c, cache)
 
 	return c, nil
 }
@@ -139,18 +143,15 @@ func (collector *Collector) GetJoinedSubjectTitles() []string {
 
 // GetCollectedSubjects ...
 func (collector *Collector) GetCollectedSubjects() subject.Map {
-	// TODO: add store interface
-	// return collector.collectedSubjects
-	return nil
+	return collector.cache.GetCollectedSubjects()
 }
 
 // GetCollectedSubjectTitles ...
 func (collector *Collector) GetCollectedSubjectTitles() []string {
 	titles := make([]string, 0)
-	// TODO: add store interface
-	// for _, s := range collector.collectedSubjects {
-	// 	titles = append(titles, s.GetTitle())
-	// }
+	for _, s := range collector.cache.GetCollectedSubjects() {
+		titles = append(titles, s.GetTitle())
+	}
 
 	return titles
 }

@@ -1,4 +1,4 @@
-package zkvote
+package store
 
 import (
 	"bufio"
@@ -7,30 +7,25 @@ import (
 	"os"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/whyrusleeping/base32"
 )
 
 // Store ...
 type Store struct {
-	*Node
-	collectedSubjects subject.Map
-	createdSubjects   subject.Map
-	identityIndex     identity.Index
+	dht *dht.IpfsDHT
+	db  datastore.Batching
 }
 
 // NewStore ...
-func NewStore(node *Node) (*Store, error) {
-	store := &Store{
-		Node:              node,
-		collectedSubjects: subject.NewMap(),
-		createdSubjects:   subject.NewMap(),
-		identityIndex:     identity.NewIndex(),
-	}
-
-	return store, nil
+func NewStore(dht *dht.IpfsDHT, db datastore.Batching) (*Store, error) {
+	return &Store{
+		dht: dht,
+		db:  db,
+	}, nil
 }
+
+// func (s *Store) InsertSubject(HashHex)
 
 // PutDHT ...
 func (store *Store) PutDHT() error {

@@ -11,6 +11,7 @@ import (
 
 	identity "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	subject "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // Voter ...
@@ -20,6 +21,7 @@ type Voter struct {
 	ctx           *context.Context
 	ps            *pubsub.PubSub
 	idProtocol    *IdentityProtocol
+	cache         *store.Cache
 	subscriptions map[subject.HashHex]*VoterSubscription
 	messages      map[string][]*pubsub.Message
 }
@@ -41,16 +43,17 @@ func (v *VoterSubscription) GetVoteSub() *pubsub.Subscription {
 }
 
 // NewVoter ...
-func NewVoter(host host.Host, ctx *context.Context, collector *Collector, ps *pubsub.PubSub) (*Voter, error) {
+func NewVoter(host host.Host, ctx *context.Context, collector *Collector, ps *pubsub.PubSub, cache *store.Cache) (*Voter, error) {
 	v := &Voter{
 		host:          host,
 		ctx:           ctx,
 		ps:            ps,
 		collector:     collector,
+		cache:         cache,
 		subscriptions: make(map[subject.HashHex]*VoterSubscription),
 		messages:      make(map[string][]*pubsub.Message),
 	}
-	v.idProtocol = NewIdentityProtocol(host, v, make(chan bool, 1))
+	v.idProtocol = NewIdentityProtocol(host, v, cache, make(chan bool, 1))
 	return v, nil
 }
 
@@ -59,10 +62,9 @@ func (voter *Voter) Propose(subjectTitle string) error {
 	// Store the new subject locally
 	subject := subject.NewSubject(subjectTitle, "Description foobar")
 
-	// TODO: call store interface
 	// Store the created subject
-	// voter.createdSubjects[subject.Hash().Hex()] = subject
-	// fmt.Println(voter.createdSubjects)
+	voter.cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
+	fmt.Println(voter.cache.GetCreatedSubjects())
 
 	// Subscribe to two topics: one for identities, one for votes
 	identitySub, err := voter.ps.Subscribe("identity/" + subject.Hash().Hex().String())
@@ -212,28 +214,26 @@ func (voter *Voter) SyncIdentityIndex() error {
 	return nil
 }
 
-// GetSubscriptions
+// GetSubscriptions .
 func (voter *Voter) GetSubscriptions() map[subject.HashHex]*VoterSubscription {
 	return voter.subscriptions
 }
 
 // GetIdentityHashes ...
 func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []identity.Hash {
-	// TODO: add store interface
-	// identityHashSet, ok := voter.identityIndex[string(subjectHash.Hex())]
-	// if !ok {
-	// 	identityHashSet = identity.NewHashSet()
-	// }
-	// list := make([]identity.Hash, 0)
-	// for hx := range identityHashSet {
-	// 	h, err := hex.DecodeString(hx.String())
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 	}
-	// 	list = append(list, identity.Hash(h))
-	// }
-	// return list
-	return nil
+	identityHashSet := voter.cache.GetAIDIndex(string(subjectHash.Hex()))
+	if nil == identityHashSet {
+		identityHashSet = identity.NewHashSet()
+	}
+	list := make([]identity.Hash, 0)
+	for hx := range identityHashSet {
+		h, err := hex.DecodeString(hx.String())
+		if err != nil {
+			fmt.Println(err)
+		}
+		list = append(list, identity.Hash(h))
+	}
+	return list
 }
 
 func pubsubHandler(voter *Voter, sub *pubsub.Subscription) {
@@ -261,17 +261,16 @@ func identitySubHandler(voter *Voter, subjectHash *subject.Hash, subscription *p
 		_ = m
 		// TODO: add lock back
 		// voter.Lock()
-		// identityHash := identity.Hash(m.GetData())
+		identityHash := identity.Hash(m.GetData())
 
 		fmt.Println("identitySubHandler: Received message")
 
-		// TODO: add sotre interface
-		// identityHashSet, ok := voter.identityIndex[string(subjectHash.Hex())]
-		// if !ok {
-		// 	identityHashSet = identity.NewHashSet()
-		// }
-		// identityHashSet[identityHash.Hex()] = ""
-		// voter.identityIndex[string(subjectHash.Hex())] = identityHashSet
+		identityHashSet := voter.cache.GetAIDIndex(string(subjectHash.Hex()))
+		if nil == identityHashSet {
+			identityHashSet = identity.NewHashSet()
+		}
+		identityHashSet[identityHash.Hex()] = ""
+		voter.cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
 		// voter.Unlock()
 	}
 }

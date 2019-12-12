@@ -26,6 +26,7 @@ import (
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/unitychain/zkvote-node/zkvote/pubsubhandler"
+	store "github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // node client version
@@ -36,7 +37,8 @@ type Node struct {
 	host host.Host
 	*Collector
 	*Voter
-	*Store
+	*store.Store
+	cache     *store.Cache
 	ctx       context.Context
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
@@ -95,9 +97,10 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
-	node.Collector, err = NewCollector(host, &ctx, ps, d1)
-	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps)
-	node.Store, err = NewStore(node)
+	node.cache, _ = store.NewCache()
+	node.Collector, err = NewCollector(host, &ctx, ps, d1, node.cache)
+	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps, node.cache)
+	node.Store, err = store.NewStore(node.dht, node.db)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -164,15 +167,15 @@ func (node *Node) Info() error {
 	fmt.Println(len(node.host.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
-	for sh := range node.createdSubjects {
+	for sh := range node.cache.GetCreatedSubjects() {
 		fmt.Println(sh)
 	}
 
 	fmt.Println("Collected subjects:")
-	fmt.Println(node.collectedSubjects)
+	fmt.Println(node.cache.GetCollectedSubjects())
 
 	fmt.Println("IdentityIndex:")
-	for k, set := range node.identityIndex {
+	for k, set := range node.cache.GetIDIndexes() {
 		fmt.Println(k)
 		fmt.Println(set)
 	}

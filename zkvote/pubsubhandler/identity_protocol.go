@@ -16,7 +16,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
+	identity "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
@@ -26,17 +28,20 @@ const identityResponse = "/identity/res/0.0.1"
 
 // IdentityProtocol type
 type IdentityProtocol struct {
-	host     host.Host
+	host host.Host
+	// TODO keep either voter or cache
 	voter    *Voter
+	cache    *store.Cache
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
 	done     chan bool                      // only for demo purposes to stop main from terminating
 }
 
 // NewIdentityProtocol ...
-func NewIdentityProtocol(host host.Host, voter *Voter, done chan bool) *IdentityProtocol {
+func NewIdentityProtocol(host host.Host, voter *Voter, cache *store.Cache, done chan bool) *IdentityProtocol {
 	sp := &IdentityProtocol{
 		host:     host,
 		voter:    voter,
+		cache:    cache,
 		requests: make(map[string]*pb.IdentityRequest),
 		done:     done,
 	}
@@ -131,18 +136,17 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 
 	// Store all identityHash
 
-	// TODO: add store interface
-	// subjectHash := subject.Hash(data.SubjectHash)
-	// identityHashSet, ok := sp.node.identityIndex[string(subjectHash.Hex())]
-	// if !ok {
-	// 	identityHashSet = identity.NewHashSet()
-	// }
-	// for _, idhash := range data.IdentityHashes {
-	// 	identityHash := identity.Hash(idhash)
-	// 	identityHashSet[identityHash.Hex()] = ""
-	// }
-	// fmt.Println("***", subjectHash.Hex())
-	// sp.node.identityIndex[string(subjectHash.Hex())] = identityHashSet
+	subjectHash := subject.Hash(data.SubjectHash)
+	identityHashSet := sp.cache.GetAIDIndex(string(subjectHash.Hex()))
+	if nil == identityHashSet {
+		identityHashSet = identity.NewHashSet()
+	}
+	for _, idhash := range data.IdentityHashes {
+		identityHash := identity.Hash(idhash)
+		identityHashSet[identityHash.Hex()] = ""
+	}
+	fmt.Println("***", subjectHash.Hex())
+	sp.cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]

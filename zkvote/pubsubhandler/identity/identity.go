@@ -31,7 +31,7 @@ type Index map[string]HashSet
 
 // NewIndex ...
 func NewIndex() Index {
-	// TODO :
+	// TODO : workaround for cycle import
 	// return Index(make(map[subject.HashHex]HashSet))
 	return Index(make(map[string]HashSet))
 }
