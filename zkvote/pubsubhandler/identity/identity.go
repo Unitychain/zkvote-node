@@ -1,9 +1,8 @@
-package pubsubhandler
+package identity
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
-
 )
 
 // Identity ...
@@ -28,11 +27,13 @@ func (h Hash) Hex() HashHex {
 }
 
 // Index ...
-type Index map[subject.HashHex]HashSet
+type Index map[string]HashSet
 
 // NewIndex ...
 func NewIndex() Index {
-	return Index(make(map[subject.HashHex]HashSet))
+	// TODO :
+	// return Index(make(map[subject.HashHex]HashSet))
+	return Index(make(map[string]HashSet))
 }
 
 // HashSet ...

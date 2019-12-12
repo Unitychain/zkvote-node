@@ -15,12 +15,12 @@ type IdentityImp struct {
 const TREE_LEVEL uint8 = 10
 
 // NewIdentity ...
-func NewIdentity() (*IdentityImp, error) {
-	return NewIdentityWithTreeLevel(TREE_LEVEL)
+func NewIdentityImp() (*IdentityImp, error) {
+	return NewIdentityImpWithTreeLevel(TREE_LEVEL)
 }
 
 // NewIdentityWithTreeLevel ...
-func NewIdentityWithTreeLevel(treeLevel uint8) (*IdentityImp, error) {
+func NewIdentityImpWithTreeLevel(treeLevel uint8) (*IdentityImp, error) {
 	tree, err := NewMerkleTree(treeLevel)
 	if err != nil {
 		return nil, err
@@ -74,5 +74,4 @@ func (i *IdentityImp) IsMember(root *big.Int) bool {
 //
 func (i *IdentityImp) appendRoot(r *big.Int) {
 	i.rootHistory = append(i.rootHistory, i.tree.GetRoot())
-}
 }

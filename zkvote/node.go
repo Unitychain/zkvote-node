@@ -8,21 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"log"
-
-	ggio "github.com/gogo/protobuf/io"
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-datastore"
 	ipns "github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -31,16 +25,15 @@ import (
 	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
-	subject "github.com/unitychain/zkvote-node/zkvote/pb"
+	. "github.com/unitychain/zkvote-node/zkvote/pubsubhandler"
 )
 
 // node client version
-const clientVersion = "zkvote/0.0.1"
 
 // Node ...
 type Node struct {
 	sync.RWMutex
-	host.Host
+	host host.Host
 	*Collector
 	*Voter
 	*Store
@@ -95,16 +88,15 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 
 	node := &Node{
 		ctx:       ctx,
-		Host:      host,
+		host:      host,
 		dht:       d1,
 		pubsub:    ps,
 		db:        ds,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
-
-	node.Collector, err = NewCollector(node)
-	node.Voter, err = NewVoter(node)
+	node.Collector, err = NewCollector(host, &ctx, ps, d1)
+	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps)
 	node.Store, err = NewStore(node)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
@@ -122,7 +114,7 @@ func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
 	node.mdnsPeers[pi.ID] = pi
 	node.Unlock()
 
-	if err := node.Connect(node.ctx, pi); err != nil {
+	if err := node.host.Connect(node.ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)
 	}
 }
@@ -140,12 +132,12 @@ func (node *Node) Info() error {
 
 	fmt.Println()
 	fmt.Println("My peer ID:")
-	fmt.Printf("\t%s\n", node.ID())
+	fmt.Printf("\t%s\n", node.host.ID())
 
 	fmt.Println()
 	fmt.Println("My identified multiaddrs:")
-	for _, a := range node.Addrs() {
-		fmt.Printf("\t%s/p2p/%s\n", a, node.ID())
+	for _, a := range node.host.Addrs() {
+		fmt.Printf("\t%s/p2p/%s\n", a, node.host.ID())
 	}
 
 	// What protocols are added by default?
@@ -158,10 +150,10 @@ func (node *Node) Info() error {
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
 	fmt.Println("Peers in peerstore:")
-	for _, p := range node.Peerstore().PeersWithAddrs() {
+	for _, p := range node.host.Peerstore().PeersWithAddrs() {
 		fmt.Printf("\t%s\n", p)
 	}
-	fmt.Println(len(node.Peerstore().PeersWithAddrs()))
+	fmt.Println(len(node.host.Peerstore().PeersWithAddrs()))
 
 	// DHT routing table
 	fmt.Println("DHT Routing table:")
@@ -169,7 +161,7 @@ func (node *Node) Info() error {
 
 	// Connections
 	fmt.Println("Connections:")
-	fmt.Println(len(node.Network().Conns()))
+	fmt.Println(len(node.host.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
 	for sh := range node.createdSubjects {
@@ -189,9 +181,9 @@ func (node *Node) Info() error {
 	fmt.Println(node.pubsub.GetTopics())
 
 	fmt.Println("Subscriptions:")
-	for key, value := range node.subscriptions {
+	for key, value := range node.GetSubscriptions() {
 		fmt.Println(key)
-		fmt.Println(value.identitySubscription)
+		fmt.Println(value.GetIdentitySub())
 	}
 
 	return nil
@@ -217,7 +209,7 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 			defer wg.Done()
 
 			fmt.Printf("Connecting to peer: %s\n", ai)
-			if err := node.Connect(ctx, ai); err != nil {
+			if err := node.host.Connect(ctx, ai); err != nil {
 				fmt.Printf("Failed while connecting to peer: %s; %s\n", ai, err)
 			} else {
 				fmt.Printf("Succeeded while connecting to peer: %s\n", ai)
@@ -238,51 +230,6 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	node.dht.RoutingTable().Print()
 
 	return nil
-}
-
-// NewMetadata helper method - generate message data shared between all node's p2p protocols
-// messageId: unique for requests, copied from request for responses
-func (node *Node) NewMetadata(messageID string, gossip bool) *subject.Metadata {
-	// Add protobufs bin data for message author public key
-	// this is useful for authenticating  messages forwarded by a node authored by another node
-	nodePubKey, err := node.Peerstore().PubKey(node.ID()).Bytes()
-
-	if err != nil {
-		panic("Failed to get public key for sender from local peer store.")
-	}
-
-	return &subject.Metadata{ClientVersion: clientVersion,
-		NodeId:     peer.IDB58Encode(node.ID()),
-		NodePubKey: nodePubKey,
-		Timestamp:  time.Now().Unix(),
-		Id:         messageID,
-		Gossip:     gossip}
-}
-
-// helper method - writes a protobuf go data object to a network stream
-// data: reference of protobuf go data object to send (not the object itself)
-// s: network stream to write the data to
-func (node *Node) sendProtoMessage(id peer.ID, p protocol.ID, data proto.Message) bool {
-	s, err := node.NewStream(context.Background(), id, p)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	writer := ggio.NewFullWriter(s)
-	err = writer.WriteMsg(data)
-	if err != nil {
-		log.Println(err)
-		s.Reset()
-		return false
-	}
-	// FullClose closes the stream and waits for the other side to close their half.
-	err = helpers.FullClose(s)
-	if err != nil {
-		log.Println(err)
-		s.Reset()
-		return false
-	}
-	return true
 }
 
 // // Authenticate incoming p2p message
@@ -501,7 +448,7 @@ func (node *Node) handleFindProposers() error {
 
 	for p := range peers {
 		fmt.Println("found peer", p)
-		node.providers[p.ID] = ""
+		node.SetProvider(p.ID, "")
 	}
 
 	return nil

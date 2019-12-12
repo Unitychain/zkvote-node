@@ -1,4 +1,4 @@
-package pubsubhandler
+package subject
 
 import (
 	"crypto/sha256"
