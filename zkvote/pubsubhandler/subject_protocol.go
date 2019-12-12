@@ -22,7 +22,8 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	host      host.Host
+	host host.Host
+	// TODO keep either collector or cache
 	collector *Collector
 	cache     *store.Cache
 	requests  map[string]*pb.SubjectRequest // used to access request data from response handlers

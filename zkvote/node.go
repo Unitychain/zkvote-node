@@ -33,7 +33,7 @@ import (
 
 // Node ...
 type Node struct {
-	sync.RWMutex
+	mu   *sync.RWMutex
 	host host.Host
 	*Collector
 	*Voter
@@ -97,9 +97,10 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
+	node.mu = new(sync.RWMutex)
 	node.cache, _ = store.NewCache()
 	node.Collector, err = NewCollector(host, &ctx, ps, d1, node.cache)
-	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps, node.cache)
+	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps, node.cache, node.mu)
 	node.Store, err = store.NewStore(node.dht, node.db)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
@@ -113,9 +114,9 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 
 // HandlePeerFound msdn handler
 func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
-	node.Lock()
+	node.mu.Lock()
 	node.mdnsPeers[pi.ID] = pi
-	node.Unlock()
+	node.mu.Unlock()
 
 	if err := node.host.Connect(node.ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)

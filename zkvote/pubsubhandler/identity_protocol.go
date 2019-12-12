@@ -143,7 +143,7 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	}
 	for _, idhash := range data.IdentityHashes {
 		identityHash := identity.Hash(idhash)
-		identityHashSet[identityHash.Hex()] = ""
+		identityHashSet[identityHash.Hex()] = "ID"
 	}
 	fmt.Println("***", subjectHash.Hex())
 	sp.cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
