@@ -75,10 +75,10 @@ func (c *Controller) QuerySubjects(rw http.ResponseWriter, req *http.Request) {
 	c.writeResponse(rw, response)
 }
 
-func chToJSON(ch <-chan *subject.Subject) map[string]map[string]string {
-	result := make(map[string]map[string]string)
+func chToJSON(ch <-chan *subject.Subject) []map[string]string {
+	result := make([]map[string]string, 0)
 	for s := range ch {
-		result[s.Hash().Hex().String()] = s.JSON()
+		result = append(result, s.JSON())
 	}
 	return result
 }
