@@ -21,5 +21,5 @@ type QuerySubjectsParams struct {
 // QuerySubjectsResponse ...
 type QuerySubjectsResponse struct {
 	// in: body
-	Results map[string]map[string]string `json:"results"`
+	Results []map[string]string `json:"results"`
 }

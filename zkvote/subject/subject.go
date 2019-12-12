@@ -51,6 +51,7 @@ func (s *Subject) Hash() *Hash {
 // JSON ...
 func (s *Subject) JSON() map[string]string {
 	return map[string]string{
+		"hash":        s.Hash().Hex().String(),
 		"title":       s.title,
 		"description": s.description,
 	}

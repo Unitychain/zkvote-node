@@ -16,6 +16,7 @@ import (
 
 func main() {
 	path := flag.String("db", "dht-data", "Database folder")
+	serverPort := flag.Int("p", 9900, "Web UI port")
 	flag.Parse()
 
 	utils.OpenLog()
@@ -39,8 +40,8 @@ func main() {
 	timeSeed := time.Now().UnixNano() / int64(time.Millisecond)
 	rand.Seed(timeSeed)
 	p2pPort := rand.Intn(100) + 10000
-	serverPort := rand.Intn(100) + 3000
-	serverAddr := "127.0.0.1:" + strconv.Itoa(serverPort)
+	// serverPort := strconv.Itoa(rand.Intn(100) + 3000)
+	serverAddr := "127.0.0.1:" + strconv.Itoa(*serverPort)
 
 	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize, p2pPort)
 	if err != nil {
@@ -53,6 +54,6 @@ func main() {
 	}
 
 	go server.ListenAndServe()
-	fmt.Printf("HTTP server listens to port %d\n", serverPort)
+	fmt.Printf("HTTP server listens to port %d\n", *serverPort)
 	node.Run()
 }
