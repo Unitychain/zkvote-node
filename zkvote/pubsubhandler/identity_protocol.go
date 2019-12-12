@@ -18,7 +18,6 @@ import (
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
 	identity "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/identity"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
-	"github.com/unitychain/zkvote-node/zkvote/store"
 	"github.com/unitychain/zkvote-node/zkvote/utils"
 )
 
@@ -28,25 +27,20 @@ const identityResponse = "/identity/res/0.0.1"
 
 // IdentityProtocol type
 type IdentityProtocol struct {
-	host host.Host
-	// TODO keep either voter or cache
 	voter    *Voter
-	cache    *store.Cache
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
 	done     chan bool                      // only for demo purposes to stop main from terminating
 }
 
 // NewIdentityProtocol ...
-func NewIdentityProtocol(host host.Host, voter *Voter, cache *store.Cache, done chan bool) *IdentityProtocol {
+func NewIdentityProtocol(voter *Voter, done chan bool) *IdentityProtocol {
 	sp := &IdentityProtocol{
-		host:     host,
 		voter:    voter,
-		cache:    cache,
 		requests: make(map[string]*pb.IdentityRequest),
 		done:     done,
 	}
-	host.SetStreamHandler(identityRequest, sp.onIdentityRequest)
-	host.SetStreamHandler(identityResponse, sp.onIdentityResponse)
+	voter.Host.SetStreamHandler(identityRequest, sp.onIdentityRequest)
+	voter.Host.SetStreamHandler(identityResponse, sp.onIdentityResponse)
 	return sp
 }
 
@@ -88,8 +82,8 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	for _, h := range sp.voter.GetIdentityHashes(&subjectHash) {
 		identityHashes = append(identityHashes, h.Byte())
 	}
-	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Identity response from %s", sp.host.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
+	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.voter.Host, data.Metadata.Id, false),
+		Message: fmt.Sprintf("Identity response from %s", sp.voter.Host.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -102,7 +96,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// resp.Metadata.Sign = signature
 
 	// send the response
-	ok := SendProtoMessage(sp.host, s.Conn().RemotePeer(), identityResponse, resp)
+	ok := SendProtoMessage(sp.voter.Host, s.Conn().RemotePeer(), identityResponse, resp)
 
 	if ok {
 		log.Printf("Identity response to %s sent.", s.Conn().RemotePeer().String())
@@ -134,19 +128,13 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// 	return
 	// }
 
+	// REVIEW
 	// Store all identityHash
-
 	subjectHash := subject.Hash(data.SubjectHash)
-	identityHashSet := sp.cache.GetAIDIndex(string(subjectHash.Hex()))
-	if nil == identityHashSet {
-		identityHashSet = identity.NewHashSet()
-	}
 	for _, idhash := range data.IdentityHashes {
-		identityHash := identity.Hash(idhash)
-		identityHashSet[identityHash.Hex()] = "ID"
+		sp.voter.InsertIdentity(&subjectHash, identity.Hash(idhash))
 	}
 	fmt.Println("***", subjectHash.Hex())
-	sp.cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]
@@ -167,8 +155,8 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	log.Printf("Sending identity request to: %s....", peerID)
 
 	// create message data
-	req := &pb.IdentityRequest{Metadata: NewMetadata(sp.host, uuid.New().String(), false),
-		Message: fmt.Sprintf("Identity request from %s", sp.host.ID()), SubjectHash: subjectHash.Byte()}
+	req := &pb.IdentityRequest{Metadata: NewMetadata(sp.voter.Host, uuid.New().String(), false),
+		Message: fmt.Sprintf("Identity request from %s", sp.voter.Host.ID()), SubjectHash: subjectHash.Byte()}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(req)
@@ -180,7 +168,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	// add the signature to the message
 	// req.Metadata.Sign = signature
 
-	ok := SendProtoMessage(sp.host, peerID, identityRequest, req)
+	ok := SendProtoMessage(sp.voter.Host, peerID, identityRequest, req)
 	if !ok {
 		return false
 	}

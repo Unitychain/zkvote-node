@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
@@ -13,7 +12,6 @@ import (
 	uuid "github.com/google/uuid"
 	pb "github.com/unitychain/zkvote-node/zkvote/pb"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
-	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -22,23 +20,18 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	host host.Host
-	// TODO keep either collector or cache
 	collector *Collector
-	cache     *store.Cache
 	requests  map[string]*pb.SubjectRequest // used to access request data from response handlers
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(host host.Host, collector *Collector, cache *store.Cache) *SubjectProtocol {
+func NewSubjectProtocol(collector *Collector) *SubjectProtocol {
 	sp := &SubjectProtocol{
-		host:      host,
 		collector: collector,
-		cache:     cache,
 		requests:  make(map[string]*pb.SubjectRequest),
 	}
-	host.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
-	host.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
+	collector.Host.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
+	collector.Host.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
 	return sp
 }
 
@@ -76,14 +69,14 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 
 	// List created subjects
 	subjects := make([]*pb.Subject, 0)
-	for _, s := range sp.cache.GetCreatedSubjects() {
+	for _, s := range sp.collector.Cache.GetCreatedSubjects() {
 		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription()}
 		subjects = append(subjects, subject)
 	}
-	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: subjects}
-	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.host, data.Metadata.Id, false),
-	// 	Message: fmt.Sprintf("Subject response from %s", sp.host.ID()), Subjects: nil}
+	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.collector.Host, data.Metadata.Id, false),
+		Message: fmt.Sprintf("Subject response from %s", sp.collector.Host.ID()), Subjects: subjects}
+	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.collector.Host, data.Metadata.Id, false),
+	// 	Message: fmt.Sprintf("Subject response from %s", sp.collector.Host.ID()), Subjects: nil}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -96,7 +89,7 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	// resp.Metadata.Sign = signature
 
 	// send the response
-	ok := SendProtoMessage(sp.host, s.Conn().RemotePeer(), subjectResponse, resp)
+	ok := SendProtoMessage(sp.collector.Host, s.Conn().RemotePeer(), subjectResponse, resp)
 
 	if ok {
 		log.Printf("Subject response to %s sent.", s.Conn().RemotePeer().String())
@@ -133,7 +126,7 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 	// Store all topics
 	for _, sub := range data.Subjects {
 		subject := subject.NewSubject(sub.Title, sub.Description)
-		subjectMap := sp.cache.GetCollectedSubjects()
+		subjectMap := sp.collector.Cache.GetCollectedSubjects()
 		subjectMap[subject.Hash().Hex()] = subject
 		results = append(results, subject)
 	}
@@ -156,8 +149,8 @@ func (sp *SubjectProtocol) GetCreatedSubjects(peerID peer.ID) bool {
 	log.Printf("Sending subject request to: %s....", peerID)
 
 	// create message data
-	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.host, uuid.New().String(), false),
-		Message: fmt.Sprintf("Subject request from %s", sp.host.ID())}
+	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.collector.Host, uuid.New().String(), false),
+		Message: fmt.Sprintf("Subject request from %s", sp.collector.Host.ID())}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(req)
@@ -169,7 +162,7 @@ func (sp *SubjectProtocol) GetCreatedSubjects(peerID peer.ID) bool {
 	// add the signature to the message
 	// req.Metadata.Sign = signature
 
-	ok := SendProtoMessage(sp.host, peerID, subjectRequest, req)
+	ok := SendProtoMessage(sp.collector.Host, peerID, subjectRequest, req)
 	if !ok {
 		return false
 	}

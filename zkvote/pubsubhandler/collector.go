@@ -6,23 +6,21 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/discovery"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	localContext "github.com/unitychain/zkvote-node/zkvote/context"
 	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
-	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // Collector ...
 type Collector struct {
-	host              host.Host
-	ctx               *context.Context
+	subjProtocol *SubjectProtocol
+	*localContext.Context
+
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
-	cache             *store.Cache
-	subjProtocol      *SubjectProtocol
 	discovery         discovery.Discovery
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
@@ -30,26 +28,22 @@ type Collector struct {
 
 // NewCollector ...
 func NewCollector(
-	host host.Host,
-	ctx *context.Context,
 	pubsub *pubsub.PubSub,
 	dht *dht.IpfsDHT,
-	cache *store.Cache,
+	lc *localContext.Context,
 ) (*Collector, error) {
 	// Discovery
 	rd := routingDiscovery.NewRoutingDiscovery(dht)
 
 	c := &Collector{
-		host:              host,
-		ctx:               ctx,
 		ps:                pubsub,
 		dht:               dht,
 		discovery:         rd,
-		cache:             cache,
+		Context:           lc,
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 	}
-	c.subjProtocol = NewSubjectProtocol(host, c, cache)
+	c.subjProtocol = NewSubjectProtocol(c)
 
 	return c, nil
 }
@@ -97,11 +91,11 @@ func (collector *Collector) Collect() (<-chan *subject.Subject, error) {
 
 	for peer := range proposers {
 		// Ignore self ID
-		if peer.ID == collector.host.ID() {
+		if peer.ID == collector.Host.ID() {
 			continue
 		}
 		fmt.Println("found peer", peer)
-		collector.host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
+		collector.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 		collector.subjProtocol.GetCreatedSubjects(peer.ID)
 
 		resultCount++
@@ -143,13 +137,13 @@ func (collector *Collector) GetJoinedSubjectTitles() []string {
 
 // GetCollectedSubjects ...
 func (collector *Collector) GetCollectedSubjects() subject.Map {
-	return collector.cache.GetCollectedSubjects()
+	return collector.Cache.GetCollectedSubjects()
 }
 
 // GetCollectedSubjectTitles ...
 func (collector *Collector) GetCollectedSubjectTitles() []string {
 	titles := make([]string, 0)
-	for _, s := range collector.cache.GetCollectedSubjects() {
+	for _, s := range collector.Cache.GetCollectedSubjects() {
 		titles = append(titles, s.GetTitle())
 	}
 

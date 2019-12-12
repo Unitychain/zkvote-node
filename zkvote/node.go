@@ -14,7 +14,6 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
@@ -25,21 +24,18 @@ import (
 	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
+	localContext "github.com/unitychain/zkvote-node/zkvote/context"
 	. "github.com/unitychain/zkvote-node/zkvote/pubsubhandler"
-	store "github.com/unitychain/zkvote-node/zkvote/store"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // node client version
 
 // Node ...
 type Node struct {
-	mu   *sync.RWMutex
-	host host.Host
+	*localContext.Context
 	*Collector
 	*Voter
-	*store.Store
-	cache     *store.Cache
-	ctx       context.Context
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
 	db        datastore.Batching
@@ -89,19 +85,17 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}
 
 	node := &Node{
-		ctx:       ctx,
-		host:      host,
 		dht:       d1,
 		pubsub:    ps,
 		db:        ds,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
-	node.mu = new(sync.RWMutex)
-	node.cache, _ = store.NewCache()
-	node.Collector, err = NewCollector(host, &ctx, ps, d1, node.cache)
-	node.Voter, err = NewVoter(host, &ctx, node.Collector, ps, node.cache, node.mu)
-	node.Store, err = store.NewStore(node.dht, node.db)
+	s, _ := store.NewStore(d1, ds)
+	cache, _ := store.NewCache()
+	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
+	node.Collector, _ = NewCollector(ps, d1, node.Context)
+	node.Voter, _ = NewVoter(node.Collector, ps, node.Context)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -114,11 +108,11 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 
 // HandlePeerFound msdn handler
 func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
-	node.mu.Lock()
+	node.Mutex.Lock()
 	node.mdnsPeers[pi.ID] = pi
-	node.mu.Unlock()
+	node.Mutex.Unlock()
 
-	if err := node.host.Connect(node.ctx, pi); err != nil {
+	if err := node.Context.Host.Connect(*node.Ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)
 	}
 }
@@ -136,12 +130,12 @@ func (node *Node) Info() error {
 
 	fmt.Println()
 	fmt.Println("My peer ID:")
-	fmt.Printf("\t%s\n", node.host.ID())
+	fmt.Printf("\t%s\n", node.Host.ID())
 
 	fmt.Println()
 	fmt.Println("My identified multiaddrs:")
-	for _, a := range node.host.Addrs() {
-		fmt.Printf("\t%s/p2p/%s\n", a, node.host.ID())
+	for _, a := range node.Host.Addrs() {
+		fmt.Printf("\t%s/p2p/%s\n", a, node.Host.ID())
 	}
 
 	// What protocols are added by default?
@@ -154,10 +148,10 @@ func (node *Node) Info() error {
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
 	fmt.Println("Peers in peerstore:")
-	for _, p := range node.host.Peerstore().PeersWithAddrs() {
+	for _, p := range node.Host.Peerstore().PeersWithAddrs() {
 		fmt.Printf("\t%s\n", p)
 	}
-	fmt.Println(len(node.host.Peerstore().PeersWithAddrs()))
+	fmt.Println(len(node.Host.Peerstore().PeersWithAddrs()))
 
 	// DHT routing table
 	fmt.Println("DHT Routing table:")
@@ -165,18 +159,18 @@ func (node *Node) Info() error {
 
 	// Connections
 	fmt.Println("Connections:")
-	fmt.Println(len(node.host.Network().Conns()))
+	fmt.Println(len(node.Host.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
-	for sh := range node.cache.GetCreatedSubjects() {
+	for sh := range node.Cache.GetCreatedSubjects() {
 		fmt.Println(sh)
 	}
 
 	fmt.Println("Collected subjects:")
-	fmt.Println(node.cache.GetCollectedSubjects())
+	fmt.Println(node.Cache.GetCollectedSubjects())
 
 	fmt.Println("IdentityIndex:")
-	for k, set := range node.cache.GetIDIndexes() {
+	for k, set := range node.Cache.GetIDIndexes() {
 		fmt.Println(k)
 		fmt.Println(set)
 	}
@@ -197,7 +191,7 @@ func (node *Node) Info() error {
 func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	fmt.Println("Will bootstrap for 30 seconds...")
 
-	ctx, cancel := context.WithTimeout(node.ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(*node.Ctx, 30*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -213,7 +207,7 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 			defer wg.Done()
 
 			fmt.Printf("Connecting to peer: %s\n", ai)
-			if err := node.host.Connect(ctx, ai); err != nil {
+			if err := node.Host.Connect(ctx, ai); err != nil {
 				fmt.Printf("Failed while connecting to peer: %s; %s\n", ai, err)
 			} else {
 				fmt.Printf("Succeeded while connecting to peer: %s\n", ai)
@@ -374,19 +368,19 @@ func (node *Node) handleDHTBootstrap() error {
 }
 
 func (node *Node) handlePutDHT() error {
-	return node.PutDHT()
+	return node.Store.PutDHT()
 }
 
 func (node *Node) handlePutLocal() error {
-	return node.PutLocal()
+	return node.Store.PutLocal()
 }
 
 func (node *Node) handleGetDHT() error {
-	return node.GetDHT()
+	return node.Store.GetDHT()
 }
 
 func (node *Node) handleGetLocal() error {
-	return node.GetLocal()
+	return node.Store.GetLocal()
 }
 
 func (node *Node) handleJoin() error {
