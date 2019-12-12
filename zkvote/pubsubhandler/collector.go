@@ -1,4 +1,4 @@
-package zkvote
+package pubsubhandler
 
 import (
 	"context"
@@ -8,33 +8,44 @@ import (
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/peer"
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	localContext "github.com/unitychain/zkvote-node/zkvote/context"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 )
 
 // Collector ...
 type Collector struct {
-	*Node
-	*SubjectProtocol
+	subjProtocol *SubjectProtocol
+	*localContext.Context
+
+	ps                *pubsub.PubSub
+	dht               *dht.IpfsDHT
 	discovery         discovery.Discovery
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
 }
 
 // NewCollector ...
-func NewCollector(node *Node) (*Collector, error) {
+func NewCollector(
+	pubsub *pubsub.PubSub,
+	dht *dht.IpfsDHT,
+	lc *localContext.Context,
+) (*Collector, error) {
 	// Discovery
-	rd := routingDiscovery.NewRoutingDiscovery(node.dht)
+	rd := routingDiscovery.NewRoutingDiscovery(dht)
 
-	collector := &Collector{
-		Node:              node,
+	c := &Collector{
+		ps:                pubsub,
+		dht:               dht,
 		discovery:         rd,
+		Context:           lc,
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 	}
+	c.subjProtocol = NewSubjectProtocol(c)
 
-	collector.SubjectProtocol = NewSubjectProtocol(node)
-
-	return collector, nil
+	return c, nil
 }
 
 // Announce ...
@@ -43,7 +54,7 @@ func (collector *Collector) Announce() error {
 	defer cancel()
 
 	// Before advertising, make sure the host has a subscription
-	if len(collector.pubsub.GetTopics()) != 0 {
+	if len(collector.ps.GetTopics()) != 0 {
 		fmt.Println("Announce")
 
 		_, err := collector.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
@@ -80,12 +91,12 @@ func (collector *Collector) Collect() (<-chan *subject.Subject, error) {
 
 	for peer := range proposers {
 		// Ignore self ID
-		if peer.ID == collector.ID() {
+		if peer.ID == collector.Host.ID() {
 			continue
 		}
 		fmt.Println("found peer", peer)
-		collector.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
-		collector.GetCreatedSubjects(peer.ID)
+		collector.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
+		collector.subjProtocol.GetCreatedSubjects(peer.ID)
 
 		resultCount++
 	}
@@ -101,9 +112,24 @@ func (collector *Collector) Collect() (<-chan *subject.Subject, error) {
 	return out, nil
 }
 
+// SetProvider ...
+func (c *Collector) SetProvider(key peer.ID, value string) {
+	c.providers[key] = value
+}
+
+// GetProviders ...
+func (c *Collector) GetProviders() map[peer.ID]string {
+	return c.providers
+}
+
+// GetProvider ...
+func (c *Collector) GetProvider(key peer.ID) string {
+	return c.providers[key]
+}
+
 // GetJoinedSubjectTitles ...
 func (collector *Collector) GetJoinedSubjectTitles() []string {
-	topics := collector.pubsub.GetTopics()
+	topics := collector.ps.GetTopics()
 	fmt.Println(topics)
 
 	return topics
@@ -111,13 +137,13 @@ func (collector *Collector) GetJoinedSubjectTitles() []string {
 
 // GetCollectedSubjects ...
 func (collector *Collector) GetCollectedSubjects() subject.Map {
-	return collector.collectedSubjects
+	return collector.Cache.GetCollectedSubjects()
 }
 
 // GetCollectedSubjectTitles ...
 func (collector *Collector) GetCollectedSubjectTitles() []string {
 	titles := make([]string, 0)
-	for _, s := range collector.collectedSubjects {
+	for _, s := range collector.Cache.GetCollectedSubjects() {
 		titles = append(titles, s.GetTitle())
 	}
 

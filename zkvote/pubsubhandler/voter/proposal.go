@@ -23,14 +23,14 @@ type nullifier struct {
 type Proposal struct {
 	nullifiers map[int]*nullifier
 	index      int
-	members    *Identity
+	members    *IdentityImp
 }
 
 const HASH_YES = "43379584054787486383572605962602545002668015983485933488536749112829893476306"
 const HASH_NO = "85131057757245807317576516368191972321038229705283732634690444270750521936266"
 
 // NewProposal ...
-func NewProposal(identity *Identity) (*Proposal, error) {
+func NewProposal(identity *IdentityImp) (*Proposal, error) {
 
 	nullifiers := map[int]*nullifier{
 		0: &nullifier{

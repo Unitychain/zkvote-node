@@ -8,43 +8,35 @@ import (
 	"sync"
 	"time"
 
-	"log"
-
-	ggio "github.com/gogo/protobuf/io"
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-datastore"
 	ipns "github.com/ipfs/go-ipns"
+
 	"github.com/libp2p/go-libp2p"
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/helpers"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
-
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
 	msdnDiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
+
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
-	subject "github.com/unitychain/zkvote-node/zkvote/pb"
+	localContext "github.com/unitychain/zkvote-node/zkvote/context"
+	. "github.com/unitychain/zkvote-node/zkvote/pubsubhandler"
+	"github.com/unitychain/zkvote-node/zkvote/store"
 )
 
 // node client version
-const clientVersion = "zkvote/0.0.1"
 
 // Node ...
 type Node struct {
-	sync.RWMutex
-	host.Host
+	*localContext.Context
 	*Collector
 	*Voter
-	*Store
-	ctx       context.Context
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
 	db        datastore.Batching
@@ -94,18 +86,17 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}
 
 	node := &Node{
-		ctx:       ctx,
-		Host:      host,
 		dht:       d1,
 		pubsub:    ps,
 		db:        ds,
 		mdnsPeers: make(map[peer.ID]peer.AddrInfo),
 		streams:   make(chan network.Stream, 128),
 	}
-
-	node.Collector, err = NewCollector(node)
-	node.Voter, err = NewVoter(node)
-	node.Store, err = NewStore(node)
+	s, _ := store.NewStore(d1, ds)
+	cache, _ := store.NewCache()
+	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
+	node.Collector, _ = NewCollector(ps, d1, node.Context)
+	node.Voter, _ = NewVoter(node.Collector, ps, node.Context)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -118,11 +109,11 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 
 // HandlePeerFound msdn handler
 func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
-	node.Lock()
+	node.Mutex.Lock()
 	node.mdnsPeers[pi.ID] = pi
-	node.Unlock()
+	node.Mutex.Unlock()
 
-	if err := node.Connect(node.ctx, pi); err != nil {
+	if err := node.Context.Host.Connect(*node.Ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)
 	}
 }
@@ -140,12 +131,12 @@ func (node *Node) Info() error {
 
 	fmt.Println()
 	fmt.Println("My peer ID:")
-	fmt.Printf("\t%s\n", node.ID())
+	fmt.Printf("\t%s\n", node.Host.ID())
 
 	fmt.Println()
 	fmt.Println("My identified multiaddrs:")
-	for _, a := range node.Addrs() {
-		fmt.Printf("\t%s/p2p/%s\n", a, node.ID())
+	for _, a := range node.Host.Addrs() {
+		fmt.Printf("\t%s/p2p/%s\n", a, node.Host.ID())
 	}
 
 	// What protocols are added by default?
@@ -158,10 +149,10 @@ func (node *Node) Info() error {
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
 	fmt.Println("Peers in peerstore:")
-	for _, p := range node.Peerstore().PeersWithAddrs() {
+	for _, p := range node.Host.Peerstore().PeersWithAddrs() {
 		fmt.Printf("\t%s\n", p)
 	}
-	fmt.Println(len(node.Peerstore().PeersWithAddrs()))
+	fmt.Println(len(node.Host.Peerstore().PeersWithAddrs()))
 
 	// DHT routing table
 	fmt.Println("DHT Routing table:")
@@ -169,18 +160,18 @@ func (node *Node) Info() error {
 
 	// Connections
 	fmt.Println("Connections:")
-	fmt.Println(len(node.Network().Conns()))
+	fmt.Println(len(node.Host.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
-	for sh := range node.createdSubjects {
+	for sh := range node.Cache.GetCreatedSubjects() {
 		fmt.Println(sh)
 	}
 
 	fmt.Println("Collected subjects:")
-	fmt.Println(node.collectedSubjects)
+	fmt.Println(node.Cache.GetCollectedSubjects())
 
 	fmt.Println("IdentityIndex:")
-	for k, set := range node.identityIndex {
+	for k, set := range node.Cache.GetIDIndexes() {
 		fmt.Println(k)
 		fmt.Println(set)
 	}
@@ -189,9 +180,9 @@ func (node *Node) Info() error {
 	fmt.Println(node.pubsub.GetTopics())
 
 	fmt.Println("Subscriptions:")
-	for key, value := range node.subscriptions {
+	for key, value := range node.GetSubscriptions() {
 		fmt.Println(key)
-		fmt.Println(value.identitySubscription)
+		fmt.Println(value.GetIdentitySub())
 	}
 
 	return nil
@@ -201,7 +192,7 @@ func (node *Node) Info() error {
 func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	fmt.Println("Will bootstrap for 30 seconds...")
 
-	ctx, cancel := context.WithTimeout(node.ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(*node.Ctx, 30*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -217,7 +208,7 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 			defer wg.Done()
 
 			fmt.Printf("Connecting to peer: %s\n", ai)
-			if err := node.Connect(ctx, ai); err != nil {
+			if err := node.Host.Connect(ctx, ai); err != nil {
 				fmt.Printf("Failed while connecting to peer: %s; %s\n", ai, err)
 			} else {
 				fmt.Printf("Succeeded while connecting to peer: %s\n", ai)
@@ -238,51 +229,6 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	node.dht.RoutingTable().Print()
 
 	return nil
-}
-
-// NewMetadata helper method - generate message data shared between all node's p2p protocols
-// messageId: unique for requests, copied from request for responses
-func (node *Node) NewMetadata(messageID string, gossip bool) *subject.Metadata {
-	// Add protobufs bin data for message author public key
-	// this is useful for authenticating  messages forwarded by a node authored by another node
-	nodePubKey, err := node.Peerstore().PubKey(node.ID()).Bytes()
-
-	if err != nil {
-		panic("Failed to get public key for sender from local peer store.")
-	}
-
-	return &subject.Metadata{ClientVersion: clientVersion,
-		NodeId:     peer.IDB58Encode(node.ID()),
-		NodePubKey: nodePubKey,
-		Timestamp:  time.Now().Unix(),
-		Id:         messageID,
-		Gossip:     gossip}
-}
-
-// helper method - writes a protobuf go data object to a network stream
-// data: reference of protobuf go data object to send (not the object itself)
-// s: network stream to write the data to
-func (node *Node) sendProtoMessage(id peer.ID, p protocol.ID, data proto.Message) bool {
-	s, err := node.NewStream(context.Background(), id, p)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	writer := ggio.NewFullWriter(s)
-	err = writer.WriteMsg(data)
-	if err != nil {
-		log.Println(err)
-		s.Reset()
-		return false
-	}
-	// FullClose closes the stream and waits for the other side to close their half.
-	err = helpers.FullClose(s)
-	if err != nil {
-		log.Println(err)
-		s.Reset()
-		return false
-	}
-	return true
 }
 
 // // Authenticate incoming p2p message
@@ -423,19 +369,19 @@ func (node *Node) handleDHTBootstrap() error {
 }
 
 func (node *Node) handlePutDHT() error {
-	return node.PutDHT()
+	return node.Store.PutDHT()
 }
 
 func (node *Node) handlePutLocal() error {
-	return node.PutLocal()
+	return node.Store.PutLocal()
 }
 
 func (node *Node) handleGetDHT() error {
-	return node.GetDHT()
+	return node.Store.GetDHT()
 }
 
 func (node *Node) handleGetLocal() error {
-	return node.GetLocal()
+	return node.Store.GetLocal()
 }
 
 func (node *Node) handleJoin() error {
@@ -501,7 +447,7 @@ func (node *Node) handleFindProposers() error {
 
 	for p := range peers {
 		fmt.Println("found peer", p)
-		node.providers[p.ID] = ""
+		node.SetProvider(p.ID, "")
 	}
 
 	return nil

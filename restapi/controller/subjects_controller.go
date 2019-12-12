@@ -9,7 +9,7 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/model"
 	"github.com/unitychain/zkvote-node/zkvote"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
+	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
 	// 	"errors"
 )
 
