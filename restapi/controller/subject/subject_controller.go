@@ -9,8 +9,8 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	subjectModel "github.com/unitychain/zkvote-node/restapi/model/subject"
+	subject "github.com/unitychain/zkvote-node/zkvote/model/subject"
 	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
-	"github.com/unitychain/zkvote-node/zkvote/subject"
 	// 	"errors"
 )
 
@@ -80,7 +80,13 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 
 	var request subjectModel.ProposeRequest
 
-	err := getQueryParams(&request, req.URL.Query())
+	err := req.ParseMultipartForm(0)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	err = getQueryParams(&request, req.Form)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
@@ -90,8 +96,8 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 	if request.ProposeParams != nil {
 		title = request.ProposeParams.Title
 		description = request.ProposeParams.Description
+		c.Propose(title, description)
 	}
-	fmt.Println(title, description)
 
 	response := subjectModel.ProposeResponse{
 		Results: "Success",
