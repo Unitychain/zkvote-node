@@ -25,9 +25,9 @@ import (
 
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
-	. "github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
-	"github.com/unitychain/zkvote-node/zkvote/service/store"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
+	"github.com/unitychain/zkvote-node/zkvote/service/store"
+	. "github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
 )
 
 // node client version
@@ -400,12 +400,20 @@ func (node *Node) handlePropose() error {
 	p := promptui.Prompt{
 		Label: "Subject title",
 	}
-	subjectTitle, err := p.Run()
+	title, err := p.Run()
 	if err != nil {
 		return err
 	}
 
-	return node.Propose(subjectTitle)
+	p = promptui.Prompt{
+		Label: "Subject description",
+	}
+	description, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	return node.Propose(title, description)
 }
 
 func (node *Node) handleRegister() error {
