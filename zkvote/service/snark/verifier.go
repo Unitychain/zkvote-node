@@ -9,7 +9,7 @@ import (
 	"github.com/arnaucube/go-snark/groth16"
 	goSnarkUtils "github.com/arnaucube/go-snark/utils"
 
-	"github.com/unitychain/zkvote-node/zkvote/utils"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 type Vote struct {

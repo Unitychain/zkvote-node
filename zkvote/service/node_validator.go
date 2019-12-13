@@ -1,4 +1,4 @@
-package zkvote
+package service
 
 // NodeValidator ...
 type NodeValidator struct{}

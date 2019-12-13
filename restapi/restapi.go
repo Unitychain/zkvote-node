@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
-	"github.com/unitychain/zkvote-node/zkvote"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
 )
 
 type allOpts struct {

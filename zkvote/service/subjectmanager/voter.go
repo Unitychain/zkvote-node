@@ -1,4 +1,4 @@
-package pubsubhandler
+package subjectmanager
 
 import (
 	"encoding/hex"
@@ -7,10 +7,9 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/manifoldco/promptui"
 
-	localContext "github.com/unitychain/zkvote-node/zkvote/context"
-	subject "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
-	voterPack "github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
+	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // Voter ...
@@ -58,97 +57,98 @@ func NewVoter(
 }
 
 // Propose ...
-func (voter *Voter) Propose(subjectTitle string) error {
+func (v *Voter) Propose(subjectTitle string) error {
 	// Store the new subject locally
 	subject := subject.NewSubject(subjectTitle, "Description foobar")
 
 	// Store the created subject
-	voter.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
-	fmt.Println(voter.Cache.GetCreatedSubjects())
+	v.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
+	fmt.Println(v.Cache.GetCreatedSubjects())
 
 	// Subscribe to two topics: one for identities, one for votes
-	identitySub, err := voter.ps.Subscribe("identity/" + subject.Hash().Hex().String())
+	identitySub, err := v.ps.Subscribe("identity/" + subject.Hash().Hex().String())
 	if err != nil {
 		return err
 	}
 
-	voteSub, err := voter.ps.Subscribe("vote/" + subject.Hash().Hex().String())
+	voteSub, err := v.ps.Subscribe("vote/" + subject.Hash().Hex().String())
 	if err != nil {
 		return err
 	}
 
 	// Store the subscriptions
 	voterSub := &VoterSubscription{identitySubscription: identitySub, voteSubscription: voteSub}
-	voter.subscriptions[subject.Hash().Hex()] = voterSub
+	v.subscriptions[subject.Hash().Hex()] = voterSub
 
-	go identitySubHandler(voter, subject.Hash(), identitySub)
-	// go voteSubHandler(voter, voteSub)
+	go identitySubHandler(v, subject.Hash(), identitySub)
+	// go voteSubHandler(v, voteSub)
 
 	// Announce
-	voter.collector.Announce()
+	v.collector.Announce()
 
 	return nil
 }
 
 // Join ...
-func (voter *Voter) Join(subjectHashHex string) error {
+func (v *Voter) Join(subjectHashHex string) error {
 	hash, err := hex.DecodeString(subjectHashHex)
 	if err != nil {
 		return err
 	}
 	subjectHash := subject.Hash(hash)
 
-	identitySub, err := voter.ps.Subscribe("identity/" + subjectHashHex)
+	identitySub, err := v.ps.Subscribe("identity/" + subjectHashHex)
 	if err != nil {
 		return err
 	}
 
-	voteSub, err := voter.ps.Subscribe("vote/" + subjectHashHex)
+	voteSub, err := v.ps.Subscribe("vote/" + subjectHashHex)
 	if err != nil {
 		return err
 	}
 
 	// Store the subscriptions
 	voterSub := &VoterSubscription{identitySubscription: identitySub, voteSubscription: voteSub}
-	voter.subscriptions[subjectHash.Hex()] = voterSub
+	v.subscriptions[subjectHash.Hex()] = voterSub
 
-	go identitySubHandler(voter, &subjectHash, identitySub)
+	go identitySubHandler(v, &subjectHash, identitySub)
 
 	return nil
 }
 
 // Register ...
-func (voter *Voter) Register(subjectHashHex string, identityCommitmentHex string) error {
+func (v *Voter) Register(subjectHashHex string, identityCommitmentHex string) error {
 	subHash, err := hex.DecodeString(subjectHashHex)
 	if err != nil {
 		return err
 	}
 	subjectHash := subject.Hash(subHash)
 
-	identity := voterPack.NewIdentity(identityCommitmentHex)
+	// TODO : integrate identity_pool
+	identity := id.NewIdentity(identityCommitmentHex)
 
-	voterSubscription := voter.subscriptions[subjectHash.Hex()]
+	voterSubscription := v.subscriptions[subjectHash.Hex()]
 	identitySubscription := voterSubscription.identitySubscription
 	identityTopic := identitySubscription.Topic()
 
 	// Publish identity hash
-	voter.ps.Publish(identityTopic, identity.Hash().Byte())
+	v.ps.Publish(identityTopic, identity.Hash().Byte())
 
 	return nil
 }
 
 // Vote ...
-func (voter *Voter) Vote() error {
+func (v *Voter) Vote() error {
 	return nil
 }
 
 // Open ...
-func (voter *Voter) Open() error {
+func (v *Voter) Open() error {
 	return nil
 }
 
 // Broadcast ...
-func (voter *Voter) Broadcast() error {
+func (v *Voter) Broadcast() error {
 	p := promptui.Prompt{
 		Label: "topic name",
 	}
@@ -165,17 +165,17 @@ func (voter *Voter) Broadcast() error {
 		return err
 	}
 
-	return voter.ps.Publish(topic, []byte(data))
+	return v.ps.Publish(topic, []byte(data))
 }
 
 // PrintInboundMessages ...
-func (voter *Voter) PrintInboundMessages() error {
-	voter.Mutex.RLock()
-	topics := make([]string, 0, len(voter.messages))
-	for k := range voter.messages {
+func (v *Voter) PrintInboundMessages() error {
+	v.Mutex.RLock()
+	topics := make([]string, 0, len(v.messages))
+	for k := range v.messages {
 		topics = append(topics, k)
 	}
-	voter.Mutex.RUnlock()
+	v.Mutex.RUnlock()
 
 	s := promptui.Select{
 		Label: "topic",
@@ -187,26 +187,26 @@ func (voter *Voter) PrintInboundMessages() error {
 		return err
 	}
 
-	voter.Mutex.Lock()
-	defer voter.Mutex.Unlock()
-	for _, m := range voter.messages[topic] {
+	v.Mutex.Lock()
+	defer v.Mutex.Unlock()
+	for _, m := range v.messages[topic] {
 		fmt.Printf("<<< from: %s >>>: %s\n", m.GetFrom(), string(m.GetData()))
 	}
-	voter.messages[topic] = nil
+	v.messages[topic] = nil
 	return nil
 }
 
 // SyncIdentityIndex ...
-func (voter *Voter) SyncIdentityIndex() error {
-	for subjectHashHex, voterSub := range voter.subscriptions {
+func (v *Voter) SyncIdentityIndex() error {
+	for subjectHashHex, voterSub := range v.subscriptions {
 		h, _ := hex.DecodeString(subjectHashHex.String())
 		subjectHash := subject.Hash(h)
 		// Get peers from the same pubsub
-		peers := voter.ps.ListPeers(voterSub.identitySubscription.Topic())
+		peers := v.ps.ListPeers(voterSub.identitySubscription.Topic())
 		fmt.Println(peers)
 		// Request for registry
 		for _, peer := range peers {
-			voter.idProtocol.GetIdentityIndexFromPeer(peer, &subjectHash)
+			v.idProtocol.GetIdentityIndexFromPeer(peer, &subjectHash)
 		}
 	}
 
@@ -214,92 +214,92 @@ func (voter *Voter) SyncIdentityIndex() error {
 }
 
 // GetSubscriptions .
-func (voter *Voter) GetSubscriptions() map[subject.HashHex]*VoterSubscription {
-	return voter.subscriptions
+func (v *Voter) GetSubscriptions() map[subject.HashHex]*VoterSubscription {
+	return v.subscriptions
 }
 
 // GetIdentityHashes ...
-func (voter *Voter) GetIdentityHashes(subjectHash *subject.Hash) []voter.Hash {
-	identityHashSet := voter.Cache.GetAIDIndex(subjectHash.Hex())
+func (v *Voter) GetIdentityHashes(subjectHash *subject.Hash) []id.Hash {
+	identityHashSet := v.Cache.GetAIDIndex(subjectHash.Hex())
 	if nil == identityHashSet {
-		identityHashSet = voterPack.NewHashSet()
+		identityHashSet = id.NewHashSet()
 	}
-	list := make([]voterPack.Hash, 0)
+	list := make([]id.Hash, 0)
 	for hx := range identityHashSet {
 		h, err := hex.DecodeString(hx.String())
 		if err != nil {
 			fmt.Println(err)
 		}
-		list = append(list, voterPack.Hash(h))
+		list = append(list, id.Hash(h))
 	}
 	return list
 }
 
 // InsertIdentity .
-func (v *Voter) InsertIdentity(subjectHash *subject.Hash, identityHash voter.Hash) {
+func (v *Voter) InsertIdentity(subjectHash *subject.Hash, identityHash id.Hash) {
 	v.Mutex.Lock()
 	// identityHash := identity.Hash(msg.GetData())
 	fmt.Println("identitySubHandler: Received message")
 
 	identityHashSet := v.Cache.GetAIDIndex(subjectHash.Hex())
 	if nil == identityHashSet {
-		identityHashSet = voter.NewHashSet()
+		identityHashSet = id.NewHashSet()
 	}
 	identityHashSet[identityHash.Hex()] = "ID"
 	v.Cache.InsertIDIndex(subjectHash.Hex(), identityHashSet)
 	v.Mutex.Unlock()
 }
 
-func pubsubHandler(voter *Voter, sub *pubsub.Subscription) {
+func pubsubHandler(v*Voter, sub *pubsub.Subscription) {
 	for {
-		m, err := sub.Next(*voter.Ctx)
+		m, err := sub.Next(*v.Ctx)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		voter.Mutex.Lock()
-		msgs := voter.messages[sub.Topic()]
-		voter.messages[sub.Topic()] = append(msgs, m)
-		voter.Mutex.Unlock()
+		v.Mutex.Lock()
+		msgs := v.messages[sub.Topic()]
+		v.messages[sub.Topic()] = append(msgs, m)
+		v.Mutex.Unlock()
 	}
 }
 
-func identitySubHandler(voter *Voter, subjectHash *subject.Hash, subscription *pubsub.Subscription) {
+func identitySubHandler(v *Voter, subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {
-		m, err := subscription.Next(*voter.Ctx)
+		m, err := subscription.Next(*v.Ctx)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		_ = m
-		identityHash := voterPack.Hash(m.GetData())
-		voter.InsertIdentity(subjectHash, identityHash)
-		// voter.Mutex.Lock()
+		identityHash := id.Hash(m.GetData())
+		v.InsertIdentity(subjectHash, identityHash)
+		// v.Mutex.Lock()
 		// identityHash := identity.Hash(m.GetData())
 
 		// fmt.Println("identitySubHandler: Received message")
 
-		// identityHashSet := voter.Cache.GetAIDIndex(string(subjectHash.Hex()))
+		// identityHashSet := v.Cache.GetAIDIndex(string(subjectHash.Hex()))
 		// if nil == identityHashSet {
 		// 	identityHashSet = identity.NewHashSet()
 		// }
 		// identityHashSet[identityHash.Hex()] = "ID"
-		// voter.Cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
-		// voter.Mutex.Unlock()
+		// v.Cache.InsertIDIndex(string(subjectHash.Hex()), identityHashSet)
+		// v.Mutex.Unlock()
 	}
 }
 
-func voteSubHandler(voter *Voter, sub *pubsub.Subscription) {
+func voteSubHandler(v *Voter, sub *pubsub.Subscription) {
 	for {
-		m, err := sub.Next(*voter.Ctx)
+		m, err := sub.Next(*v.Ctx)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		voter.Mutex.Lock()
-		msgs := voter.messages[sub.Topic()]
-		voter.messages[sub.Topic()] = append(msgs, m)
-		voter.Mutex.Unlock()
+		v.Mutex.Lock()
+		msgs := v.messages[sub.Topic()]
+		v.messages[sub.Topic()] = append(msgs, m)
+		v.Mutex.Unlock()
 	}
 }

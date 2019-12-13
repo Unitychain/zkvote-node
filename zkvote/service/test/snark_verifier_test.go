@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/unitychain/zkvote-node/zkvote/voter"
+	"github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
 )
 
 var idCommitment = [...]string{
