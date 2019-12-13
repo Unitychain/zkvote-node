@@ -12,5 +12,5 @@
 *.out
 
 zkvote-node
-node_*/
+data/
 logs.log

@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	path := flag.String("db", "dht-data", "Database folder")
+	path := flag.String("db", "node_data", "Database folder")
 	serverPort := flag.Int("p", 9900, "Web UI port")
 	flag.Parse()
 
@@ -30,6 +30,8 @@ func main() {
 	if *path == "" {
 		*path = "node_data"
 	}
+	*path = "data/" + *path
+
 	relay := false
 	bucketSize := 1
 	ds, err := levelds.NewDatastore(*path, nil)
