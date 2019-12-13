@@ -1,4 +1,4 @@
-package pubsubhandler
+package subjectmanager
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	localContext "github.com/unitychain/zkvote-node/zkvote/context"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 // Collector ...

@@ -1,4 +1,4 @@
-package pubsubhandler
+package subjectmanager
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
-	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

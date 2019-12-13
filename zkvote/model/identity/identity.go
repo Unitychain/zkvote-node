@@ -1,10 +1,9 @@
-package voter
+package identity
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
-
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 // Identity ...

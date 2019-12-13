@@ -10,8 +10,8 @@ import (
 
 	levelds "github.com/ipfs/go-ds-leveldb"
 	"github.com/unitychain/zkvote-node/restapi"
-	"github.com/unitychain/zkvote-node/zkvote"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 func main() {

@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/unitychain/zkvote-node/restapi/model"
-	"github.com/unitychain/zkvote-node/zkvote"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	// 	"errors"
 )
 

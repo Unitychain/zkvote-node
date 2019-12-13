@@ -1,4 +1,4 @@
-package pubsubhandler
+package subjectmanager
 
 import (
 	"context"
@@ -15,10 +15,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	pb "github.com/unitychain/zkvote-node/zkvote/pb"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/subject"
-	"github.com/unitychain/zkvote-node/zkvote/pubsubhandler/voter"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
+	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -128,11 +128,10 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// 	return
 	// }
 
-	// REVIEW
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
 	for _, idhash := range data.IdentityHashes {
-		sp.voter.InsertIdentity(&subjectHash, voter.Hash(idhash))
+		sp.voter.InsertIdentity(&subjectHash, id.Hash(idhash))
 	}
 	fmt.Println("***", subjectHash.Hex())
 

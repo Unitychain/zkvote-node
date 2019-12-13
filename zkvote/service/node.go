@@ -1,4 +1,4 @@
-package zkvote
+package service
 
 import (
 	"bufio"
@@ -25,9 +25,9 @@ import (
 
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
-	localContext "github.com/unitychain/zkvote-node/zkvote/context"
-	. "github.com/unitychain/zkvote-node/zkvote/pubsubhandler"
-	"github.com/unitychain/zkvote-node/zkvote/store"
+	. "github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
+	"github.com/unitychain/zkvote-node/zkvote/service/store"
+	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 )
 
 // node client version

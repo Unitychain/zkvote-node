@@ -1,4 +1,4 @@
-package voter
+package subjectmanager
 
 import (
 	"fmt"

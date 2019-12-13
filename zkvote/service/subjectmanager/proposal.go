@@ -1,11 +1,11 @@
-package voter
+package subjectmanager
 
 import (
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/unitychain/zkvote-node/zkvote/snark"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
+	"github.com/unitychain/zkvote-node/zkvote/service/snark"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 type vote struct {

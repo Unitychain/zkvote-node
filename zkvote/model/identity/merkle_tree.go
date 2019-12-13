@@ -1,12 +1,12 @@
-package voter
+package identity
 
 import (
 	"fmt"
 	"math"
 	"math/big"
 
-	hashWrapper "github.com/unitychain/zkvote-node/zkvote/crypto"
-	"github.com/unitychain/zkvote-node/zkvote/utils"
+	hashWrapper "github.com/unitychain/zkvote-node/zkvote/service/crypto"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 	merkletree "github.com/cbergoon/merkletree"
 )
 
