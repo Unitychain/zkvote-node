@@ -1,10 +1,10 @@
-package subjectmanager
+package voter
 
 import (
 	"math/big"
 
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // IdentityImp ...

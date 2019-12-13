@@ -27,7 +27,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/service/store"
-	. "github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
+	"github.com/unitychain/zkvote-node/zkvote/service/voter"
 )
 
 // node client version
@@ -35,8 +35,7 @@ import (
 // Node ...
 type Node struct {
 	*localContext.Context
-	*Collector
-	*Voter
+	*voter.Manager
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
 	db        datastore.Batching
@@ -74,7 +73,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	// Use an empty validator here for simplicity
 	// CAUTION! Use d2 will cause a "stream reset" error!
 
-	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(NodeValidator{}))
+	d1, err := dht.New(context.Background(), host, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(store.NodeValidator{}))
 	if err != nil {
 		panic(err)
 	}
@@ -95,8 +94,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	s, _ := store.NewStore(d1, ds)
 	cache, _ := store.NewCache()
 	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
-	node.Collector, _ = NewCollector(ps, d1, node.Context)
-	node.Voter, _ = NewVoter(node.Collector, ps, node.Context)
+	node.Manager, _ = voter.NewManager(ps, d1, node.Context)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
