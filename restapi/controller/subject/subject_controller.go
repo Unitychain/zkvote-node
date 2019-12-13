@@ -60,7 +60,7 @@ func (c *Controller) index(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	subjects, err := c.Collector.Collect()
+	subjects, err := c.Manager.Collect()
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
