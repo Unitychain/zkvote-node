@@ -318,20 +318,18 @@ func (node *Node) Run() {
 		exec func() error
 	}{
 		{"My info", node.handleMyInfo},
-		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
+		{"Manager: Propose a subject", node.handlePropose},
+		{"Manager: Join a subject", node.handleJoin},
+		{"Manager: Register identity", node.handleRegister},
+		{"Manager: Advertise topic", node.handleAnnounce},
+		{"Manager: Find topic providers", node.handleFindProposers},
+		{"Manager: Collect all topics", node.handleCollect},
+		{"Voter: Sync identity index", node.handleSyncIdentityIndex},
 		{"Store: Put DHT", node.handlePutDHT},
 		{"Store: Get DHT", node.handleGetDHT},
 		{"Store: Put Local", node.handlePutLocal},
 		{"Store: Get Local", node.handleGetLocal},
-		{"Voter: Propose a subject", node.handlePropose},
-		{"Voter: Join a subject", node.handleJoin},
-		{"Voter: Register identity", node.handleRegister},
-		{"Voter: Publish a message", node.handleBroadcast},
-		{"Voter: Sync identity index", node.handleSyncIdentityIndex},
-		{"Voter: Print inbound messages", node.handlePrintInboundMessages},
-		{"Collector: Advertise topic", node.handleAnnounce},
-		{"Collector: Find topic providers", node.handleFindProposers},
-		{"Collector: Collect all topics", node.handleCollect},
+		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
 	}
 
 	var str []string
