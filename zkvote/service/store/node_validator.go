@@ -1,4 +1,4 @@
-package service
+package store
 
 // NodeValidator ...
 type NodeValidator struct{}

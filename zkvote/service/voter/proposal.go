@@ -1,4 +1,4 @@
-package subjectmanager
+package voter
 
 import (
 	"math/big"
@@ -20,6 +20,7 @@ type nullifier struct {
 	votes   vote
 }
 
+// Proposal ...
 type Proposal struct {
 	nullifiers map[int]*nullifier
 	index      int

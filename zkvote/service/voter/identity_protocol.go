@@ -1,4 +1,4 @@
-package subjectmanager
+package voter
 
 import (
 	"context"
@@ -15,10 +15,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
-	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -27,20 +27,20 @@ const identityResponse = "/identity/res/0.0.1"
 
 // IdentityProtocol type
 type IdentityProtocol struct {
-	voter    *Voter
+	manager  *Manager
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
 	done     chan bool                      // only for demo purposes to stop main from terminating
 }
 
 // NewIdentityProtocol ...
-func NewIdentityProtocol(voter *Voter, done chan bool) *IdentityProtocol {
+func NewIdentityProtocol(m *Manager, done chan bool) *IdentityProtocol {
 	sp := &IdentityProtocol{
-		voter:    voter,
+		manager:  m,
 		requests: make(map[string]*pb.IdentityRequest),
 		done:     done,
 	}
-	voter.Host.SetStreamHandler(identityRequest, sp.onIdentityRequest)
-	voter.Host.SetStreamHandler(identityResponse, sp.onIdentityResponse)
+	m.Host.SetStreamHandler(identityRequest, sp.onIdentityRequest)
+	m.Host.SetStreamHandler(identityResponse, sp.onIdentityResponse)
 	return sp
 }
 
@@ -79,11 +79,11 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
 	var identityHashes [][]byte
-	for _, h := range sp.voter.GetIdentityHashes(&subjectHash) {
+	for _, h := range sp.manager.GetIdentityHashes(&subjectHash) {
 		identityHashes = append(identityHashes, h.Byte())
 	}
-	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.voter.Host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Identity response from %s", sp.voter.Host.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
+	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
+		Message: fmt.Sprintf("Identity response from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -96,7 +96,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// resp.Metadata.Sign = signature
 
 	// send the response
-	ok := SendProtoMessage(sp.voter.Host, s.Conn().RemotePeer(), identityResponse, resp)
+	ok := SendProtoMessage(sp.manager.Host, s.Conn().RemotePeer(), identityResponse, resp)
 
 	if ok {
 		log.Printf("Identity response to %s sent.", s.Conn().RemotePeer().String())
@@ -131,7 +131,7 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
 	for _, idhash := range data.IdentityHashes {
-		sp.voter.InsertIdentity(&subjectHash, id.Hash(idhash))
+		sp.manager.InsertIdentity(&subjectHash, id.Hash(idhash))
 	}
 	fmt.Println("***", subjectHash.Hex())
 
@@ -154,8 +154,8 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	log.Printf("Sending identity request to: %s....", peerID)
 
 	// create message data
-	req := &pb.IdentityRequest{Metadata: NewMetadata(sp.voter.Host, uuid.New().String(), false),
-		Message: fmt.Sprintf("Identity request from %s", sp.voter.Host.ID()), SubjectHash: subjectHash.Byte()}
+	req := &pb.IdentityRequest{Metadata: NewMetadata(sp.manager.Host, uuid.New().String(), false),
+		Message: fmt.Sprintf("Identity request from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte()}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(req)
@@ -167,7 +167,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	// add the signature to the message
 	// req.Metadata.Sign = signature
 
-	ok := SendProtoMessage(sp.voter.Host, peerID, identityRequest, req)
+	ok := SendProtoMessage(sp.manager.Host, peerID, identityRequest, req)
 	if !ok {
 		return false
 	}
@@ -178,7 +178,7 @@ func (sp *IdentityProtocol) GetIdentityIndexFromPeer(peerID peer.ID, subjectHash
 	return true
 }
 
-// helper method - writes a protobuf go data object to a network stream
+// SendProtoMessage helper method - writes a protobuf go data object to a network stream
 // data: reference of protobuf go data object to send (not the object itself)
 // s: network stream to write the data to
 func SendProtoMessage(host host.Host, id peer.ID, p protocol.ID, data proto.Message) bool {
