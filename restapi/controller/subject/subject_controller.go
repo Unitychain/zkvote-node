@@ -1,4 +1,4 @@
-package controller
+package subject
 
 import (
 	"encoding/json"
@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/unitychain/zkvote-node/restapi/model"
+	"github.com/unitychain/zkvote-node/restapi/controller"
+	subjectModel "github.com/unitychain/zkvote-node/restapi/model/subject"
+	subject "github.com/unitychain/zkvote-node/zkvote/model/subject"
 	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
-	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	// 	"errors"
 )
 
@@ -17,8 +18,8 @@ import (
 
 const (
 	operationID = "/subjects"
-	subjects    = operationID
-	// createInvitationPath    = operationID + "/create-invitation"
+	indexPath   = operationID
+	proposePath = operationID + "/propose"
 	// receiveInvitationPath   = operationID + "/receive-invitation"
 	// acceptInvitationPath    = operationID + "/{id}/accept-invitation"
 	// connectionsByID         = operationID + "/{id}"
@@ -29,12 +30,12 @@ const (
 
 // Controller ...
 type Controller struct {
-	handlers []Handler
+	handlers []controller.Handler
 	*zkvote.Node
 }
 
-// NewCollectorController ...
-func NewCollectorController(node *zkvote.Node) (*Controller, error) {
+// New ...
+func New(node *zkvote.Node) (*Controller, error) {
 	controller := &Controller{
 		Node: node,
 	}
@@ -48,11 +49,10 @@ func NewCollectorController(node *zkvote.Node) (*Controller, error) {
 	return controller, nil
 }
 
-// QuerySubjects ...
-func (c *Controller) QuerySubjects(rw http.ResponseWriter, req *http.Request) {
+func (c *Controller) index(rw http.ResponseWriter, req *http.Request) {
 	// logger.Debugf("Querying subjects")
 
-	var request model.QuerySubjectsParams
+	var request subjectModel.IndexRequest
 
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
@@ -68,8 +68,39 @@ func (c *Controller) QuerySubjects(rw http.ResponseWriter, req *http.Request) {
 
 	results := chToJSON(subjects)
 
-	response := model.QuerySubjectsResponse{
+	response := subjectModel.IndexResponse{
 		Results: results,
+	}
+
+	c.writeResponse(rw, response)
+}
+
+func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
+	// logger.Debugf("Querying subjects")
+
+	var request subjectModel.ProposeRequest
+
+	err := req.ParseMultipartForm(0)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	err = getQueryParams(&request, req.Form)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	var title, description string
+	if request.ProposeParams != nil {
+		title = request.ProposeParams.Title
+		description = request.ProposeParams.Description
+		c.Propose(title, description)
+	}
+
+	response := subjectModel.ProposeResponse{
+		Results: "Success",
 	}
 
 	c.writeResponse(rw, response)
@@ -85,7 +116,7 @@ func chToJSON(ch <-chan *subject.Subject) []map[string]string {
 
 // writeGenericError writes given error to writer as generic error response
 func (c *Controller) writeGenericError(rw io.Writer, err error) {
-	errResponse := model.GenericError{
+	errResponse := subjectModel.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
 			Message string `json:"message"`
@@ -109,18 +140,18 @@ func (c *Controller) writeResponse(rw io.Writer, v interface{}) {
 }
 
 // GetRESTHandlers get all controller API handler available for this protocol service
-func (c *Controller) GetRESTHandlers() []Handler {
+func (c *Controller) GetRESTHandlers() []controller.Handler {
 	return c.handlers
 }
 
 // registerHandler register handlers to be exposed from this protocol service as REST API endpoints
 func (c *Controller) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
-	c.handlers = []Handler{
-		NewHTTPHandler(subjects, http.MethodGet, c.QuerySubjects),
+	c.handlers = []controller.Handler{
+		controller.NewHTTPHandler(indexPath, http.MethodGet, c.index),
+		controller.NewHTTPHandler(proposePath, http.MethodPost, c.propose),
 		// support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		// support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
-		// support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
 		// support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		// support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		// support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),

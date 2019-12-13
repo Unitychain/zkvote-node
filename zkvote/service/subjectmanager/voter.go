@@ -8,8 +8,8 @@ import (
 	"github.com/manifoldco/promptui"
 
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
-	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 // Voter ...
@@ -57,9 +57,9 @@ func NewVoter(
 }
 
 // Propose ...
-func (v *Voter) Propose(subjectTitle string) error {
+func (v *Voter) Propose(title string, description string) error {
 	// Store the new subject locally
-	subject := subject.NewSubject(subjectTitle, "Description foobar")
+	subject := subject.NewSubject(title, description)
 
 	// Store the created subject
 	v.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
@@ -250,7 +250,7 @@ func (v *Voter) InsertIdentity(subjectHash *subject.Hash, identityHash id.Hash) 
 	v.Mutex.Unlock()
 }
 
-func pubsubHandler(v*Voter, sub *pubsub.Subscription) {
+func pubsubHandler(v *Voter, sub *pubsub.Subscription) {
 	for {
 		m, err := sub.Next(*v.Ctx)
 		if err != nil {
