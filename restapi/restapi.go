@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
+	subjectController "github.com/unitychain/zkvote-node/restapi/controller/subject"
 	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
 )
 
@@ -35,12 +36,12 @@ func NewRESTAPI(node *zkvote.Node, opts ...Opt) (*RESTAPI, error) {
 
 	var allHandlers []controller.Handler
 
-	collectorController, err := controller.NewCollectorController(node)
+	sc, err := subjectController.New(node)
 	if err != nil {
 		fmt.Print(err)
 	}
 
-	allHandlers = append(allHandlers, collectorController.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, sc.GetRESTHandlers()...)
 
 	return &RESTAPI{handlers: allHandlers}, nil
 }
