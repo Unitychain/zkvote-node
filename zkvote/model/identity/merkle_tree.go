@@ -5,9 +5,9 @@ import (
 	"math"
 	"math/big"
 
+	merkletree "github.com/cbergoon/merkletree"
 	hashWrapper "github.com/unitychain/zkvote-node/zkvote/service/crypto"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
-	merkletree "github.com/cbergoon/merkletree"
 )
 
 //
@@ -203,6 +203,15 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 		return nil, nil
 	}
 	return imv, root
+}
+
+// GetAllContent .
+func (m *MerkleTree) GetAllContent() []*big.Int {
+	ids := make([]*big.Int, len(m.content))
+	for i, c := range m.content {
+		ids[i] = c.(TreeContent).x
+	}
+	return ids
 }
 
 // IsExisted ...

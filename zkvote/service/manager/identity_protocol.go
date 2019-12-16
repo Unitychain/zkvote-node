@@ -132,7 +132,7 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
 	for _, idhash := range data.IdentityHashes {
-		sp.manager.InsertIdentity(&subjectHash, id.Hash(idhash))
+		sp.manager.Register(subjectHash.Hex().String(), id.Hash(idhash).Hex().String())
 	}
 	fmt.Println("***", subjectHash.Hex())
 

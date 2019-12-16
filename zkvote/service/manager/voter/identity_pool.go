@@ -69,6 +69,11 @@ func (i *IdentityPool) IsMember(root *big.Int) bool {
 	return false
 }
 
+// GetAllIds .
+func (i *IdentityPool) GetAllIds() []*big.Int {
+	return i.tree.GetAllContent()
+}
+
 //
 // Internal functions
 //
