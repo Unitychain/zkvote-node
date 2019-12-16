@@ -1,46 +1,38 @@
-# zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on DHT
+# zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on p2p Network
 `zkvote-node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
 
 ## Architecture
 ![](https://i.imgur.com/REKBanK.png)
 
 - Cmd
-- Services
-    - Node
-        - Host
-            - A libp2p host
-            - Basic p2p functions
-        - Voter
-            - `Propose` new subject and store subjects by itself
-            - `Join` existed subjects
-            - `Register` voter's identity
-            - `Vote`(Prove)
-            - `Open`(Verify)
-            - Use `pubsub`
-        - Collector
-            - `Announce`
-            - `FindProposers`
-            - `Collect` subjects
-            - Use `discovery`
-        - Store
-            - Use DHT and local store for storing values
-            - Use `dht`
-        - zksnark
-            - ZKP module
-        - shared components
-            - pubsub
-            - dht
-            - datastore
-    - RESTAPI
-        - Controller
-            - SubjectsController
-                - QuerySubjects
-        - Model
-            - SubjectModel
-- Protocols
-    - SubjectProtocol
-- Protobuf
-    - Subject
+- zkvote(pkg)
+    - Service(pkg)
+        - Node.go
+        - manager(pkg)
+            - Manager(Collector).go
+            - subject_protocol.go
+            - identity_protocol.go
+            - voter(pkg)
+                - Voter.go
+                - IdentityPool(IdentityIMP).go
+                - Proposal.go
+        - zksnark(pkg)
+            - Verifier.go
+        - Store(pkg)
+            - Validator.go
+            - Store.go
+        - utils(pkg)
+        - crypto(pkg)
+    - Model(pkg)
+        - Subject.go
+        - Identity.go
+        - MerkelTree.go
+        - Context.go
+        - pb(pkg)
+            - zkvote.proto
+- restapi(pkg)
+    - Controller
+    - Model
 
 ## Flow
 - Onboarding flow:
