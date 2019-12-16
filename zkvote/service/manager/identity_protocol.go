@@ -79,7 +79,8 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
 	var identityHashes [][]byte
-	for _, h := range sp.manager.GetIdentityHashes(&subjectHash) {
+	set, err := sp.manager.GetIdentityHashes(&subjectHash)
+	for _, h := range set {
 		identityHashes = append(identityHashes, h.Byte())
 	}
 	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),

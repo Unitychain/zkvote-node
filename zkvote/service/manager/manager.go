@@ -14,6 +14,7 @@ import (
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/service/manager/voter"
 )
 
 // Manager ...
@@ -21,13 +22,13 @@ type Manager struct {
 	subjProtocol *SubjectProtocol
 	idProtocol   *IdentityProtocol
 	*localContext.Context
-	*Voter
 
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
 	discovery         discovery.Discovery
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
+	voterMap          map[subject.HashHex]*voter.Voter
 }
 
 // NewManager ...
@@ -46,29 +47,49 @@ func NewManager(
 		Context:           lc,
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
+		voterMap:          make(map[subject.HashHex]*voter.Voter),
 	}
 	m.subjProtocol = NewSubjectProtocol(m)
 	m.idProtocol = NewIdentityProtocol(m, make(chan bool, 1))
 
 	// TODO: Manage multiple voters
-	m.Voter, _ = NewVoter(m, pubsub, lc)
 
 	return m, nil
 }
 
-// Announce ...
-func (m *Manager) Announce() error {
+// Propose ...
+func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
+	// Store the new subject locally
+	subject := subject.NewSubject(title, description)
+
+	// Store the created subject
+	m.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
+	fmt.Println(m.Cache.GetCreatedSubjects())
+
+	// Create a new voter
+	voter, _ := voter.NewVoter(subject, m.ps, m.Context, subject.Hash())
+	m.voterMap[subject.Hash().Hex()] = voter
+
+	// TODO: Insert identity
+	// identityTopic := identitySub.Topic()
+	identity := id.NewIdentity(identityCommitmentHex)
+
+	voter.InsertIdentity(*identity.Hash())
+
+	m.announce()
+
+	return nil
+}
+
+// Announce that the node has a proposal to be discovered
+func (m *Manager) announce() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Before advertising, make sure the host has a subscription
-	if len(m.ps.GetTopics()) != 0 {
-		fmt.Println("Announce")
-
-		_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
-		return err
-	}
-	return fmt.Errorf("zknode hasn't subscribed to any topic")
+	// TODO: Check if the voter is ready for announcement
+	fmt.Println("Announce")
+	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+	return err
 }
 
 // FindProposers ...
@@ -120,6 +141,25 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 	return out, nil
 }
 
+// SyncIdentityIndex ...
+func (m *Manager) SyncIdentityIndex() error {
+	for _, voter := range m.voterMap {
+		for subjectHashHex, voterSub := range voter.Subscriptions {
+			h, _ := hex.DecodeString(subjectHashHex.String())
+			subjectHash := subject.Hash(h)
+			// Get peers from the same pubsub
+			peers := voter.Ps.ListPeers(voterSub.GetIdentitySub().Topic())
+			fmt.Println(peers)
+			// Request for registry
+			for _, peer := range peers {
+				m.idProtocol.GetIdentityIndexFromPeer(peer, &subjectHash)
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetProvider ...
 func (m *Manager) SetProvider(key peer.ID, value string) {
 	m.providers[key] = value
@@ -159,33 +199,46 @@ func (m *Manager) GetCollectedSubjectTitles() []string {
 }
 
 // InsertIdentity .
-func (m *Manager) InsertIdentity(subjectHash *subject.Hash, identityHash id.Hash) {
-	m.Mutex.Lock()
-	// identityHash := identity.Hash(msg.GetData())
-	fmt.Println("identitySubHandler: Received message")
-
-	identityHashSet := m.Cache.GetAIDIndex(subjectHash.Hex())
-	if nil == identityHashSet {
-		identityHashSet = id.NewHashSet()
+func (m *Manager) InsertIdentity(subjectHash *subject.Hash, identityHash id.Hash) error {
+	v, ok := m.voterMap[subjectHash.Hex()]
+	if !ok {
+		return fmt.Errorf("voter is not instantiated")
 	}
-	identityHashSet[identityHash.Hex()] = "ID"
-	m.Cache.InsertIDIndex(subjectHash.Hex(), identityHashSet)
-	m.Mutex.Unlock()
+
+	v.InsertIdentity(identityHash)
+
+	return nil
+
+	// m.Mutex.Lock()
+	// identityHashSet := m.Cache.GetAIDIndex(subjectHash.Hex())
+	// if nil == identityHashSet {
+	// 	identityHashSet = id.NewHashSet()
+	// }
+	// identityHashSet[identityHash.Hex()] = "ID"
+	// m.Cache.InsertIDIndex(subjectHash.Hex(), identityHashSet)
+	// m.Mutex.Unlock()
 }
 
 // GetIdentityHashes ...
-func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) []id.Hash {
-	identityHashSet := m.Cache.GetAIDIndex(subjectHash.Hex())
-	if nil == identityHashSet {
-		identityHashSet = id.NewHashSet()
+func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) ([]id.Hash, error) {
+	v, ok := m.voterMap[subjectHash.Hex()]
+	if !ok {
+		return nil, fmt.Errorf("voter is not instantiated")
 	}
-	list := make([]id.Hash, 0)
-	for hx := range identityHashSet {
-		h, err := hex.DecodeString(hx.String())
-		if err != nil {
-			fmt.Println(err)
-		}
-		list = append(list, id.Hash(h))
-	}
-	return list
+
+	// identityHashSet := m.Cache.GetAIDIndex(subjectHash.Hex())
+	// if nil == identityHashSet {
+	// 	identityHashSet = id.NewHashSet()
+	// }
+	set := v.GetIdentityHashes()
+
+	// list := make([]id.Hash, 0)
+	// for hx := range set {
+	// 	h, err := hex.DecodeString(hx.String())
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// 	list = append(list, id.Hash(h))
+	// }
+	return set, nil
 }
