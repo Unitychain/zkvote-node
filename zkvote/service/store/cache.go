@@ -2,14 +2,12 @@ package store
 
 import (
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // Cache ...
 type Cache struct {
 	collectedSubjects subject.Map
 	createdSubjects   subject.Map
-	identityIndex     identity.Index
 }
 
 // NewCache ...
@@ -17,7 +15,6 @@ func NewCache() (*Cache, error) {
 	return &Cache{
 		collectedSubjects: subject.NewMap(),
 		createdSubjects:   subject.NewMap(),
-		identityIndex:     identity.NewIndex(),
 	}, nil
 }
 
@@ -49,19 +46,4 @@ func (c *Cache) GetCreatedSubjects() subject.Map {
 // GetACreatedSubject ...
 func (c *Cache) GetACreatedSubject(k subject.HashHex) *subject.Subject {
 	return c.createdSubjects[k]
-}
-
-// InsertIDIndex .
-func (c *Cache) InsertIDIndex(k subject.HashHex, v identity.HashSet) {
-	c.identityIndex[k] = v
-}
-
-//GetIDIndexes .
-func (c *Cache) GetIDIndexes() identity.Index {
-	return c.identityIndex
-}
-
-// GetAIDIndex ...
-func (c *Cache) GetAIDIndex(k subject.HashHex) identity.HashSet {
-	return c.identityIndex[k]
 }
