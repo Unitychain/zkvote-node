@@ -20,10 +20,21 @@ type ProposeRequest struct {
 	*ProposeParams
 }
 
+// JoinRequest ...
+type JoinRequest struct {
+	*JoinParams
+}
+
 // ProposeParams ...
 type ProposeParams struct {
 	Title              string `json:"title"`
 	Description        string `json:"description"`
+	IdentityCommitment string `json:"identityCommitment"`
+}
+
+// JoinParams ...
+type JoinParams struct {
+	SubjectHash        string `json:"subjectHash"`
 	IdentityCommitment string `json:"identityCommitment"`
 }
 
@@ -35,6 +46,12 @@ type IndexResponse struct {
 
 // ProposeResponse ...
 type ProposeResponse struct {
+	// in: body
+	Results string `json:"results"`
+}
+
+// JoinResponse ...
+type JoinResponse struct {
 	// in: body
 	Results string `json:"results"`
 }
