@@ -1,10 +1,8 @@
 package service
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -26,8 +24,8 @@ import (
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
+	"github.com/unitychain/zkvote-node/zkvote/service/manager"
 	"github.com/unitychain/zkvote-node/zkvote/service/store"
-	"github.com/unitychain/zkvote-node/zkvote/service/voter"
 )
 
 // node client version
@@ -35,7 +33,7 @@ import (
 // Node ...
 type Node struct {
 	*localContext.Context
-	*voter.Manager
+	*manager.Manager
 	dht       *dht.IpfsDHT
 	pubsub    *pubsub.PubSub
 	db        datastore.Batching
@@ -94,7 +92,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	s, _ := store.NewStore(d1, ds)
 	cache, _ := store.NewCache()
 	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
-	node.Manager, _ = voter.NewManager(ps, d1, node.Context)
+	node.Manager, _ = manager.NewManager(ps, d1, node.Context)
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
@@ -168,20 +166,8 @@ func (node *Node) Info() error {
 	fmt.Println("Collected subjects:")
 	fmt.Println(node.Cache.GetCollectedSubjects())
 
-	fmt.Println("IdentityIndex:")
-	for k, set := range node.Cache.GetIDIndexes() {
-		fmt.Println(k)
-		fmt.Println(set)
-	}
-
 	fmt.Println("Subcribed topics:")
 	fmt.Println(node.pubsub.GetTopics())
-
-	fmt.Println("Subscriptions:")
-	for key, value := range node.GetSubscriptions() {
-		fmt.Println(key)
-		fmt.Println(value.GetIdentitySub())
-	}
 
 	return nil
 }
@@ -319,12 +305,11 @@ func (node *Node) Run() {
 	}{
 		{"My info", node.handleMyInfo},
 		{"Manager: Propose a subject", node.handlePropose},
-		{"Manager: Join a subject", node.handleJoin},
-		{"Manager: Register identity", node.handleRegister},
-		{"Manager: Advertise topic", node.handleAnnounce},
+		// {"Manager: Register for a subject", node.handleRegister},
+		// {"Manager: Advertise topic", node.handleAnnounce},
 		{"Manager: Find topic providers", node.handleFindProposers},
 		{"Manager: Collect all topics", node.handleCollect},
-		{"Voter: Sync identity index", node.handleSyncIdentityIndex},
+		// {"Voter: Sync identity index", node.handleSyncIdentityIndex},
 		{"Store: Put DHT", node.handlePutDHT},
 		{"Store: Get DHT", node.handleGetDHT},
 		{"Store: Put Local", node.handlePutLocal},
@@ -380,18 +365,6 @@ func (node *Node) handleGetLocal() error {
 	return node.Store.GetLocal()
 }
 
-func (node *Node) handleJoin() error {
-	p := promptui.Prompt{
-		Label: "Subject hash hex",
-	}
-	subjectHashHex, err := p.Run()
-	if err != nil {
-		return err
-	}
-
-	return node.Join(subjectHashHex)
-}
-
 func (node *Node) handlePropose() error {
 	p := promptui.Prompt{
 		Label: "Subject title",
@@ -409,39 +382,39 @@ func (node *Node) handlePropose() error {
 		return err
 	}
 
-	return node.Propose(title, description)
+	return node.Propose(title, description, "")
 }
 
-func (node *Node) handleRegister() error {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Subject hash hex: ")
-	scanner.Scan()
-	subjectHashHex := scanner.Text()
-	fmt.Println("Subject hash hex: ", subjectHashHex)
+// func (node *Node) handleRegister() error {
+// 	scanner := bufio.NewScanner(os.Stdin)
+// 	fmt.Print("Subject hash hex: ")
+// 	scanner.Scan()
+// 	subjectHashHex := scanner.Text()
+// 	fmt.Println("Subject hash hex: ", subjectHashHex)
 
-	fmt.Print("Identity commitment hex: ")
-	scanner.Scan()
-	identityCommitmentHex := scanner.Text()
-	fmt.Println("Input value: ", identityCommitmentHex)
+// 	fmt.Print("Identity commitment hex: ")
+// 	scanner.Scan()
+// 	identityCommitmentHex := scanner.Text()
+// 	fmt.Println("Input value: ", identityCommitmentHex)
 
-	return node.Register(subjectHashHex, identityCommitmentHex)
-}
+// 	return node.Register(subjectHashHex, identityCommitmentHex)
+// }
 
-func (node *Node) handleBroadcast() error {
-	return node.Broadcast()
-}
+// func (node *Node) handleBroadcast() error {
+// 	return node.Broadcast()
+// }
 
-func (node *Node) handleSyncIdentityIndex() error {
-	return node.SyncIdentityIndex()
-}
+// func (node *Node) handleSyncIdentityIndex() error {
+// 	return node.SyncIdentityIndex()
+// }
 
-func (node *Node) handlePrintInboundMessages() error {
-	return node.PrintInboundMessages()
-}
+// func (node *Node) handlePrintInboundMessages() error {
+// 	return node.PrintInboundMessages()
+// }
 
-func (node *Node) handleAnnounce() error {
-	return node.Announce()
-}
+// func (node *Node) handleAnnounce() error {
+// 	return node.Announce()
+// }
 
 func (node *Node) handleFindProposers() error {
 	peers, err := node.FindProposers()

@@ -22,8 +22,9 @@ type ProposeRequest struct {
 
 // ProposeParams ...
 type ProposeParams struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title              string `json:"title"`
+	Description        string `json:"description"`
+	IdentityCommitment string `json:"identityCommitment"`
 }
 
 // IndexResponse ...
