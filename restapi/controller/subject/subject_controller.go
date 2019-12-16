@@ -92,11 +92,12 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var title, description string
+	var title, description, identityCommitment string
 	if request.ProposeParams != nil {
 		title = request.ProposeParams.Title
 		description = request.ProposeParams.Description
-		c.Propose(title, description)
+		identityCommitment = request.ProposeParams.IdentityCommitment
+		c.Propose(title, description, identityCommitment)
 	}
 
 	response := subjectModel.ProposeResponse{
