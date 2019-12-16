@@ -28,7 +28,7 @@ type Manager struct {
 	discovery         discovery.Discovery
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
-	voterMap          map[subject.HashHex]*voter.Voter
+	voterMap          map[subject.HashHex]*voter.VoterOrg
 }
 
 // NewManager ...
@@ -47,7 +47,7 @@ func NewManager(
 		Context:           lc,
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
-		voterMap:          make(map[subject.HashHex]*voter.Voter),
+		voterMap:          make(map[subject.HashHex]*voter.VoterOrg),
 	}
 	m.subjProtocol = NewSubjectProtocol(m)
 	m.idProtocol = NewIdentityProtocol(m, make(chan bool, 1))
@@ -67,7 +67,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	fmt.Println(m.Cache.GetCreatedSubjects())
 
 	// Create a new voter
-	voter, _ := voter.NewVoter(subject, m.ps, m.Context, subject.Hash())
+	voter, _ := voter.NewVoterOrg(subject, m.ps, m.Context, subject.Hash())
 	m.voterMap[subject.Hash().Hex()] = voter
 
 	// TODO: Insert identity
