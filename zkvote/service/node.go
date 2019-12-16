@@ -169,6 +169,9 @@ func (node *Node) Info() error {
 	fmt.Println("Subcribed topics:")
 	fmt.Println(node.pubsub.GetTopics())
 
+	fmt.Println("Identity Index:")
+	fmt.Println(node.GetIdentityIndex())
+
 	return nil
 }
 
@@ -309,7 +312,7 @@ func (node *Node) Run() {
 		// {"Manager: Advertise topic", node.handleAnnounce},
 		{"Manager: Find topic providers", node.handleFindProposers},
 		{"Manager: Collect all topics", node.handleCollect},
-		// {"Voter: Sync identity index", node.handleSyncIdentityIndex},
+		{"Manager: Sync identity index", node.handleSyncIdentityIndex},
 		{"Store: Put DHT", node.handlePutDHT},
 		{"Store: Get DHT", node.handleGetDHT},
 		{"Store: Put Local", node.handlePutLocal},
@@ -404,9 +407,9 @@ func (node *Node) handlePropose() error {
 // 	return node.Broadcast()
 // }
 
-// func (node *Node) handleSyncIdentityIndex() error {
-// 	return node.SyncIdentityIndex()
-// }
+func (node *Node) handleSyncIdentityIndex() error {
+	return node.SyncIdentityIndex()
+}
 
 // func (node *Node) handlePrintInboundMessages() error {
 // 	return node.PrintInboundMessages()

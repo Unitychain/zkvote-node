@@ -57,7 +57,7 @@ func NewManager(
 	return m, nil
 }
 
-// Propose ...
+// Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
 	// Store the new subject locally
 	subject := subject.NewSubject(title, description)
@@ -67,16 +67,29 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	fmt.Println(m.Cache.GetCreatedSubjects())
 
 	// Create a new voter
-	voter, _ := voter.NewVoterOrg(subject, m.ps, m.Context, subject.Hash())
+	voter, _ := voter.NewVoterOrg(subject.Hash(), m.ps, m.Context)
 	m.voterMap[subject.Hash().Hex()] = voter
-
+	fmt.Println(subject.Hash().Hex())
+	fmt.Println(subject.Hash())
 	// TODO: Insert identity
-	// identityTopic := identitySub.Topic()
 	identity := id.NewIdentity(identityCommitmentHex)
 
 	voter.InsertIdentity(*identity.Hash())
 
 	m.announce()
+
+	return nil
+}
+
+// Join an existing subject
+func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
+	subjectHash := subject.HashHex(subjectHashHex).Hash()
+	// Create a new voter
+	voter, _ := voter.NewVoterOrg(&subjectHash, m.ps, m.Context)
+	m.voterMap[subjectHash.Hex()] = voter
+
+	// Voter registers identity
+	voter.Register(identityCommitmentHex)
 
 	return nil
 }
@@ -241,4 +254,13 @@ func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) ([]id.Hash, error
 	// 	list = append(list, id.Hash(h))
 	// }
 	return set, nil
+}
+
+// GetIdentityIndex ...
+func (m *Manager) GetIdentityIndex() id.Index {
+	index := id.NewIndex()
+	for k, v := range m.voterMap {
+		index[k] = v.GetIdentityHashSet()
+	}
+	return index
 }

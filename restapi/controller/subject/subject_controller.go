@@ -20,6 +20,7 @@ const (
 	operationID = "/subjects"
 	indexPath   = operationID
 	proposePath = operationID + "/propose"
+	joinPath    = operationID + "/join"
 	// receiveInvitationPath   = operationID + "/receive-invitation"
 	// acceptInvitationPath    = operationID + "/{id}/accept-invitation"
 	// connectionsByID         = operationID + "/{id}"
@@ -107,6 +108,37 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 	c.writeResponse(rw, response)
 }
 
+func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
+	// logger.Debugf("Querying subjects")
+
+	var request subjectModel.JoinRequest
+
+	err := req.ParseMultipartForm(0)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	err = getQueryParams(&request, req.Form)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	var subjectHash, identityCommitment string
+	if request.JoinParams != nil {
+		subjectHash = request.JoinParams.SubjectHash
+		identityCommitment = request.JoinParams.IdentityCommitment
+		c.Join(subjectHash, identityCommitment)
+	}
+
+	response := subjectModel.JoinResponse{
+		Results: "Success",
+	}
+
+	c.writeResponse(rw, response)
+}
+
 func chToJSON(ch <-chan *subject.Subject) []map[string]string {
 	result := make([]map[string]string, 0)
 	for s := range ch {
@@ -151,6 +183,7 @@ func (c *Controller) registerHandler() {
 	c.handlers = []controller.Handler{
 		controller.NewHTTPHandler(indexPath, http.MethodGet, c.index),
 		controller.NewHTTPHandler(proposePath, http.MethodPost, c.propose),
+		controller.NewHTTPHandler(joinPath, http.MethodPost, c.join),
 		// support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		// support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
 		// support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),

@@ -31,6 +31,12 @@ type HashHex string
 // String ...
 func (h HashHex) String() string { return string(h) }
 
+// Hash ...
+func (h HashHex) Hash() Hash {
+	result, _ := hex.DecodeString(string(h))
+	return Hash(result)
+}
+
 // NewSubject ...
 func NewSubject(title string, description string) *Subject {
 	return &Subject{title: title, description: description}
