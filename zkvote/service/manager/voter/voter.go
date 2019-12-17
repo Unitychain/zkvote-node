@@ -94,6 +94,15 @@ func (v *Voter) Open() error {
 	return nil
 }
 
+func (v *Voter) GetAllIdentities() []identity.HashHex {
+	ids := v.GetAllIds()
+	hexArray := make([]identity.HashHex, len(ids))
+	for i, id := range ids {
+		hexArray[i] = identity.Hash(id.Bytes()).Hex()
+	}
+	return hexArray
+}
+
 func (v *Voter) register(idCommitment *big.Int) (int, error) {
 	i, err := v.Insert(idCommitment)
 	if nil != err {

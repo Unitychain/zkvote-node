@@ -58,7 +58,7 @@ func NewManager(
 	return m, nil
 }
 
-// Propose ...
+// Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
 	// Store the new subject locally
 	subject := subject.NewSubject(title, description)
@@ -96,6 +96,14 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 		return err
 	}
 	_ = idx
+	return nil
+}
+
+// Join an existing subject
+func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
+	// subjectHash := subject.HashHex(subjectHashHex).Hash()
+	// TODO: create a subject object and sync data with existing subject
+	m.newAVoter(nil, identityCommitmentHex)
 
 	return nil
 }
@@ -246,4 +254,14 @@ func (m *Manager) announce() error {
 	fmt.Println("Announce")
 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 	return err
+}
+
+// GetIdentityIndex ...
+func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.HashHex {
+	var index map[subject.HashHex][]id.HashHex
+	// index := id.NewIndex()
+	for k, v := range m.voters {
+		index[k] = v.GetAllIdentities()
+	}
+	return index
 }
