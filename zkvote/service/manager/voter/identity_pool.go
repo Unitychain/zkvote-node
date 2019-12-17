@@ -14,12 +14,12 @@ type IdentityPool struct {
 
 const TREE_LEVEL uint8 = 10
 
-// NewIdentity ...
+// NewIdentityPool ...
 func NewIdentityPool() (*IdentityPool, error) {
 	return NewIdentityPoolWithTreeLevel(TREE_LEVEL)
 }
 
-// NewIdentityWithTreeLevel ...
+// NewIdentityPoolWithTreeLevel ...
 func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 	tree, err := NewMerkleTree(treeLevel)
 	if err != nil {
@@ -35,8 +35,8 @@ func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 	}, nil
 }
 
-// Register : register id
-func (i *IdentityPool) Register(idCommitment *big.Int) (int, error) {
+// Insert : register id
+func (i *IdentityPool) Insert(idCommitment *big.Int) (int, error) {
 	idx, err := i.tree.Insert(idCommitment)
 	if err != nil {
 		// utils.LogErrorf("register error, %v", err.Error())
@@ -67,6 +67,16 @@ func (i *IdentityPool) IsMember(root *big.Int) bool {
 		}
 	}
 	return false
+}
+
+// HasRegistered .
+func (i *IdentityPool) HasRegistered(idc *big.Int) bool {
+	return i.tree.IsExisted(idc)
+}
+
+// GetAllIds .
+func (i *IdentityPool) GetAllIds() []*big.Int {
+	return i.tree.GetAllContent()
 }
 
 //
