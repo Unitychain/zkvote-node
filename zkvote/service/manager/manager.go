@@ -31,7 +31,6 @@ type Manager struct {
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
 	voters            map[subject.HashHex]*voter.Voter
-	// voterMap          map[subject.HashHex]*voter.VoterOrg
 }
 
 // NewManager ...
@@ -101,11 +100,12 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 
 // Join an existing subject
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
-	// subjectHash := subject.HashHex(subjectHashHex).Hash()
-	// TODO: create a subject object and sync data with existing subject
-	m.newAVoter(nil, identityCommitmentHex)
-
-	return nil
+	subs := m.GetCollectedSubjects()
+	if sub, ok := subs[subject.HashHex(subjectHashHex)]; ok {
+		m.newAVoter(sub, identityCommitmentHex)
+		return nil
+	}
+	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
 }
 
 // FindProposers ...
