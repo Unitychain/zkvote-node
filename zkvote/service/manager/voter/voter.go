@@ -1,6 +1,7 @@
 package voter
 
 import (
+	"encoding/hex"
 	"math/big"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -66,7 +67,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 }
 
 // Register .
-func (v *Voter) Register(idcHex identity.HashHex) (int, error) {
+func (v *Voter) Register(idcHex identity.Identity) (int, error) {
 	return v.register(utils.GetBigIntFromHexString(idcHex.String()))
 }
 
@@ -93,11 +94,11 @@ func (v *Voter) Open() error {
 	return nil
 }
 
-func (v *Voter) GetAllIdentities() []identity.HashHex {
+func (v *Voter) GetAllIdentities() []identity.Identity {
 	ids := v.GetAllIds()
-	hexArray := make([]identity.HashHex, len(ids))
+	hexArray := make([]identity.Identity, len(ids))
 	for i, id := range ids {
-		hexArray[i] = identity.HashHex(utils.GetHexStringFromBigInt(id))
+		hexArray[i] = *identity.NewIdentity(hex.EncodeToString(id.Bytes()))
 	}
 	return hexArray
 }
@@ -128,6 +129,7 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 			utils.LogInfof("Got registed id commitment, %v", identityInt)
 			continue
 		}
+		// identityInt := utils.GetBigIntFromHexString(hex.EncodeToString(m.GetData()))
 		_, err = v.Insert(identityInt)
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())

@@ -60,7 +60,8 @@ func NewManager(
 // Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
 	// Store the new subject locally
-	subject := subject.NewSubject(title, description)
+	identity := id.NewIdentity(identityCommitmentHex)
+	subject := subject.NewSubject(title, description, identity)
 	if _, ok := m.voters[subject.Hash().Hex()]; ok {
 		return fmt.Errorf("subject already existed")
 	}
@@ -72,7 +73,6 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 
 	// Store the created subject
 	m.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
-	fmt.Println(m.Cache.GetCreatedSubjects())
 
 	m.announce()
 
@@ -87,9 +87,8 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 	}
 	subjectHash := subject.Hash(hash)
 
-	////
 	voter := m.voters[subjectHash.Hex()]
-	idx, err := voter.Register(id.HashHex(identityCommitmentHex))
+	idx, err := voter.Register(*id.NewIdentity(identityCommitmentHex))
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
 		return err
@@ -223,17 +222,17 @@ func (m *Manager) GetCollectedSubjectTitles() []string {
 	return titles
 }
 
-// GetIdentityHashes ...
-func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) ([]id.Hash, error) {
+// GetIdentitySet ...
+func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, error) {
 	v, ok := m.voters[subjectHash.Hex()]
 	if !ok {
 		return nil, fmt.Errorf("voter is not instantiated")
 	}
 
 	set := v.GetAllIds()
-	hashSet := make([]id.Hash, len(set))
+	hashSet := make([]id.Identity, len(set))
 	for i, v := range set {
-		hashSet[i] = v.Bytes()
+		hashSet[i] = *id.NewIdentity(hex.EncodeToString(v.Bytes()))
 	}
 
 	return hashSet, nil
@@ -245,7 +244,7 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	if nil != err {
 		return nil, err
 	}
-	voter.Register(id.HashHex(idc))
+	voter.Register(*id.NewIdentity(idc))
 
 	jsonStr, err := json.Marshal(sub.JSON())
 	if nil != err {
@@ -270,8 +269,8 @@ func (m *Manager) announce() error {
 }
 
 // GetIdentityIndex ...
-func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.HashHex {
-	index := make(map[subject.HashHex][]id.HashHex)
+func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
+	index := make(map[subject.HashHex][]id.Identity)
 	for k, v := range m.voters {
 		index[k] = v.GetAllIdentities()
 	}
