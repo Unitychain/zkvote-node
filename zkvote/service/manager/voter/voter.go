@@ -1,7 +1,6 @@
 package voter
 
 import (
-	"fmt"
 	"math/big"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -98,7 +97,7 @@ func (v *Voter) GetAllIdentities() []identity.HashHex {
 	ids := v.GetAllIds()
 	hexArray := make([]identity.HashHex, len(ids))
 	for i, id := range ids {
-		hexArray[i] = identity.Hash(id.Bytes()).Hex()
+		hexArray[i] = identity.HashHex(utils.GetHexStringFromBigInt(id))
 	}
 	return hexArray
 }
@@ -117,19 +116,21 @@ func (v *Voter) register(idCommitment *big.Int) (int, error) {
 
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {
-		utils.LogDebugf("identitySubHandler: Received message")
-
 		m, err := subscription.Next(*v.Ctx)
 		if err != nil {
-			fmt.Println(err)
+			utils.LogErrorf("Failed to get identity subscription, %v", err.Error())
 			return
 		}
+		utils.LogDebugf("identitySubHandler: Received message")
 
-		identityHash := identity.Hash(m.GetData())
-		identityInt := utils.GetBigIntFromHexString(identityHash.Hex().String())
+		identityInt := big.NewInt(0).SetBytes(m.GetData())
+		if v.HasRegistered(identityInt) {
+			utils.LogInfof("Got registed id commitment, %v", identityInt)
+			continue
+		}
 		_, err = v.Insert(identityInt)
 		if nil != err {
-			fmt.Println(err)
+			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
 		}
 	}
 }
@@ -138,7 +139,7 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 	for {
 		m, err := sub.Next(*v.Ctx)
 		if err != nil {
-			fmt.Println(err)
+			utils.LogErrorf("Failed to get vote subscription, %v", err.Error())
 			return
 		}
 		v.Mutex.Lock()
