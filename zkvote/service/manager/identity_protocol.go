@@ -78,13 +78,13 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
-	var identityHashes [][]byte
-	set, err := sp.manager.GetIdentityHashes(&subjectHash)
+	var identitySet []string
+	set, err := sp.manager.GetIdentitySet(&subjectHash)
 	for _, h := range set {
-		identityHashes = append(identityHashes, h.Byte())
+		identitySet = append(identitySet, h.String())
 	}
 	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Identity response from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte(), IdentityHashes: identityHashes}
+		Message: fmt.Sprintf("Identity response from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte(), IdentitySet: identitySet}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(resp)
@@ -131,8 +131,8 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
-	for _, idhash := range data.IdentityHashes {
-		sp.manager.Register(subjectHash.Hex().String(), id.Hash(idhash).Hex().String())
+	for _, idhash := range data.IdentitySet {
+		sp.manager.Register(subjectHash.Hex().String(), id.NewIdentity(idhash).String())
 	}
 	fmt.Println("***", subjectHash.Hex())
 

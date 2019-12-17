@@ -10,6 +10,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
@@ -70,7 +71,8 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	// List created subjects
 	subjects := make([]*pb.Subject, 0)
 	for _, s := range sp.manager.Cache.GetCreatedSubjects() {
-		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription()}
+		identity := s.GetProposer()
+		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription(), Proposer: identity.String()}
 		subjects = append(subjects, subject)
 	}
 	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
@@ -125,7 +127,8 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 
 	// Store all topics
 	for _, sub := range data.Subjects {
-		subject := subject.NewSubject(sub.Title, sub.Description)
+		identity := identity.NewIdentity(sub.Proposer)
+		subject := subject.NewSubject(sub.Title, sub.Description, identity)
 		subjectMap := sp.manager.Cache.GetCollectedSubjects()
 		subjectMap[subject.Hash().Hex()] = subject
 		results = append(results, subject)
