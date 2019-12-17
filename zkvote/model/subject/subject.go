@@ -11,7 +11,7 @@ import (
 type Subject struct {
 	title       string
 	description string
-	proposer    identity.Identity
+	proposer    *identity.Identity
 }
 
 // Hash ...
@@ -41,8 +41,8 @@ func (h HashHex) Hash() Hash {
 }
 
 // NewSubject ...
-func NewSubject(title string, description string) *Subject {
-	return &Subject{title: title, description: description}
+func NewSubject(title string, description string, identity *identity.Identity) *Subject {
+	return &Subject{title: title, description: description, proposer: identity}
 }
 
 // NewMap ...
@@ -52,7 +52,7 @@ func NewMap() Map {
 
 // Hash ...
 func (s *Subject) Hash() *Hash {
-	h := sha256.Sum256([]byte(s.title + s.description + s.proposer.Hash().Hex().String()))
+	h := sha256.Sum256([]byte(s.title + s.description + s.proposer.String()))
 	result := Hash(h[:])
 	return &result
 }
@@ -63,7 +63,7 @@ func (s *Subject) JSON() map[string]string {
 		"hash":        s.Hash().Hex().String(),
 		"title":       s.title,
 		"description": s.description,
-		"proposer":    s.proposer.Hash().Hex().String(),
+		"proposer":    s.proposer.String(),
 	}
 }
 
@@ -79,5 +79,5 @@ func (s *Subject) GetDescription() string {
 
 // GetProposer ...
 func (s *Subject) GetProposer() identity.Identity {
-	return s.proposer
+	return *s.proposer
 }
