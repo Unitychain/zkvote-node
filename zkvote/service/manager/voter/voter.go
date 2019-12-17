@@ -62,7 +62,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 	}
 
 	go v.identitySubHandler(v.subject.Hash(), v.subscription.idSub)
-	go v.voteSubHandler(v.subscription.idSub)
+	// go v.voteSubHandler(v.subscription.idSub)
 	return v, nil
 }
 
@@ -126,7 +126,11 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		}
 
 		identityHash := identity.Hash(m.GetData())
-		v.Register(identityHash.Hex())
+		identityInt := utils.GetBigIntFromHexString(identityHash.Hex().String())
+		_, err = v.Insert(identityInt)
+		if nil != err {
+			fmt.Println(err)
+		}
 	}
 }
 

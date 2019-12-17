@@ -271,8 +271,7 @@ func (m *Manager) announce() error {
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.HashHex {
-	var index map[subject.HashHex][]id.HashHex
-	// index := id.NewIndex()
+	index := make(map[subject.HashHex][]id.HashHex)
 	for k, v := range m.voters {
 		index[k] = v.GetAllIdentities()
 	}
