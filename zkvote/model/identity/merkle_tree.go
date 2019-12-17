@@ -78,7 +78,9 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 
 // Insert : insert into to the merkle tree
 func (m *MerkleTree) Insert(value *big.Int) (int, error) {
-
+	if value == nil {
+		return -1, fmt.Errorf("invalid input value")
+	}
 	if m.IsExisted(value) {
 		return -1, fmt.Errorf("value existed, %v", value)
 	}
