@@ -23,6 +23,7 @@ message SubjectResponse {
 message Subject {
     string title = 1;
     string description = 2;
+    string proposer = 3;
 }
 
 // identity protocol
@@ -42,7 +43,7 @@ message IdentityResponse {
     // response specific data
     string message = 2;
     bytes subjectHash = 3;
-    repeated bytes identityHashes = 4;
+    repeated string identitySet = 4;
 }
 
 // designed to be shared between all app protocols

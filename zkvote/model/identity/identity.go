@@ -1,16 +1,12 @@
 package identity
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-)
-
 // Identity ...
 type Identity string
 
 // NewIdentity ...
 func NewIdentity(commitment string) *Identity {
 	// TODO: Check if commitment is a hex string
+	// TODO: Change the encoding tp hex if needed
 	id := Identity(commitment)
 	return &id
 }
@@ -19,31 +15,16 @@ func NewIdentity(commitment string) *Identity {
 type Hash []byte
 
 // Byte ...
-func (h Hash) Byte() []byte { return []byte(h) }
-
-// Hex ...
-func (h Hash) Hex() HashHex {
-	return HashHex(hex.EncodeToString(h.Byte()))
-}
-
-// HashSet ...
-type HashSet map[HashHex]string
-
-// NewHashSet ...
-func NewHashSet() HashSet {
-	result := HashSet(make(map[HashHex]string))
-	return result
-}
-
-// HashHex ...
-type HashHex string
+func (id Identity) Byte() []byte { return []byte(string(id)) }
 
 // String ...
-func (h HashHex) String() string { return string(h) }
+func (id Identity) String() string { return string(id) }
 
-// Hash ...
-func (i *Identity) Hash() *Hash {
-	h := sha256.Sum256([]byte(string(*i)))
-	result := Hash(h[:])
-	return &result
+// Set ...
+type Set map[Identity]string
+
+// NewSet ...
+func NewSet() Set {
+	result := Set(make(map[Identity]string))
+	return result
 }
