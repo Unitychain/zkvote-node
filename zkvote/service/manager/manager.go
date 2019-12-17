@@ -157,6 +157,19 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 	return out, nil
 }
 
+// GetSubjectList ...
+func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
+	result := make([]*subject.Subject, 0)
+	collections, _ := m.Collect()
+	for s := range collections {
+		result = append(result, s)
+	}
+	for _, s := range m.Cache.GetCreatedSubjects() {
+		result = append(result, s)
+	}
+	return result, nil
+}
+
 // SyncIdentityIndex ...
 func (m *Manager) SyncIdentityIndex() error {
 	for _, voter := range m.voters {
@@ -258,8 +271,7 @@ func (m *Manager) announce() error {
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.HashHex {
-	var index map[subject.HashHex][]id.HashHex
-	// index := id.NewIndex()
+	index := make(map[subject.HashHex][]id.HashHex)
 	for k, v := range m.voters {
 		index[k] = v.GetAllIdentities()
 	}

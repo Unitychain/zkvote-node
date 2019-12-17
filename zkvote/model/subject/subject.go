@@ -3,12 +3,15 @@ package subject
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // Subject ...
 type Subject struct {
 	title       string
 	description string
+	proposer    identity.Identity
 }
 
 // Hash ...
@@ -49,7 +52,7 @@ func NewMap() Map {
 
 // Hash ...
 func (s *Subject) Hash() *Hash {
-	h := sha256.Sum256([]byte(s.title + s.description))
+	h := sha256.Sum256([]byte(s.title + s.description + s.proposer.Hash().Hex().String()))
 	result := Hash(h[:])
 	return &result
 }
@@ -60,6 +63,7 @@ func (s *Subject) JSON() map[string]string {
 		"hash":        s.Hash().Hex().String(),
 		"title":       s.title,
 		"description": s.description,
+		"proposer":    s.proposer.Hash().Hex().String(),
 	}
 }
 
@@ -71,4 +75,9 @@ func (s *Subject) GetTitle() string {
 // GetDescription ...
 func (s *Subject) GetDescription() string {
 	return s.description
+}
+
+// GetProposer ...
+func (s *Subject) GetProposer() identity.Identity {
+	return s.proposer
 }

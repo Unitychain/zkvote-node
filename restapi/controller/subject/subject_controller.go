@@ -61,13 +61,13 @@ func (c *Controller) index(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	subjects, err := c.Manager.Collect()
+	subjects, err := c.Manager.GetSubjectList()
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	results := chToJSON(subjects)
+	results := subjectToJSON(subjects)
 
 	response := subjectModel.IndexResponse{
 		Results: results,
@@ -139,9 +139,9 @@ func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
 	c.writeResponse(rw, response)
 }
 
-func chToJSON(ch <-chan *subject.Subject) []map[string]string {
+func subjectToJSON(s []*subject.Subject) []map[string]string {
 	result := make([]map[string]string, 0)
-	for s := range ch {
+	for _, s := range s {
 		result = append(result, s.JSON())
 	}
 	return result

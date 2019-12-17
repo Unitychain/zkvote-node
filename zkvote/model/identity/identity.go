@@ -3,17 +3,16 @@ package identity
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 // Identity ...
-type Identity struct {
-	commitment string
-}
+type Identity string
 
 // NewIdentity ...
 func NewIdentity(commitment string) *Identity {
-	return &Identity{commitment: commitment}
+	// TODO: Check if commitment is a hex string
+	id := Identity(commitment)
+	return &id
 }
 
 // Hash ...
@@ -25,14 +24,6 @@ func (h Hash) Byte() []byte { return []byte(h) }
 // Hex ...
 func (h Hash) Hex() HashHex {
 	return HashHex(hex.EncodeToString(h.Byte()))
-}
-
-// Index ...
-type Index map[subject.HashHex]HashSet
-
-// NewIndex ...
-func NewIndex() Index {
-	return Index(make(map[subject.HashHex]HashSet))
 }
 
 // HashSet ...
@@ -52,7 +43,7 @@ func (h HashHex) String() string { return string(h) }
 
 // Hash ...
 func (i *Identity) Hash() *Hash {
-	h := sha256.Sum256([]byte(i.commitment))
+	h := sha256.Sum256([]byte(string(*i)))
 	result := Hash(h[:])
 	return &result
 }
