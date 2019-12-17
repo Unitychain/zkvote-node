@@ -90,7 +90,7 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 
 	////
 	voter := m.voters[subjectHash.Hex()]
-	idx, err := voter.Register(utils.GetBigIntFromHexString(identityCommitmentHex))
+	idx, err := voter.Register(id.HashHex(identityCommitmentHex))
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
 		return err
@@ -202,17 +202,6 @@ func (m *Manager) GetCollectedSubjectTitles() []string {
 	return titles
 }
 
-// InsertIdentity .
-// func (m *Manager) InsertIdentity(subjectHash *subject.Hash, identityHash id.Hash) error {
-// 	v, ok := m.voters[subjectHash.Hex()]
-// 	if !ok {
-// 		return fmt.Errorf("voter is not instantiated")
-// 	}
-// 	_, err := v.Register(utils.GetBigIntFromHexString(identityHash))
-
-// 	return err
-// }
-
 // GetIdentityHashes ...
 func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) ([]id.Hash, error) {
 	v, ok := m.voters[subjectHash.Hex()]
@@ -229,13 +218,13 @@ func (m *Manager) GetIdentityHashes(subjectHash *subject.Hash) ([]id.Hash, error
 	return hashSet, nil
 }
 
-func (v *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
+func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
-	voter, err := voter.NewVoter(sub, v.ps)
+	voter, err := voter.NewVoter(sub, m.ps, m.Context)
 	if nil != err {
 		return nil, err
 	}
-	voter.Register(utils.GetBigIntFromHexString(idc))
+	voter.Register(id.HashHex(idc))
 
 	jsonStr, err := json.Marshal(sub.JSON())
 	if nil != err {
@@ -244,8 +233,8 @@ func (v *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	pid := voter.Propose(string(jsonStr))
 	_ = pid
 
-	v.voters[sub.Hash().Hex()] = voter
-	return v.voters[sub.Hash().Hex()], nil
+	m.voters[sub.Hash().Hex()] = voter
+	return m.voters[sub.Hash().Hex()], nil
 }
 
 // Announce that the node has a proposal to be discovered
