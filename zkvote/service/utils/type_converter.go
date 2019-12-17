@@ -27,6 +27,10 @@ func GetBigIntFromHexString(hex string) *big.Int {
 	return b
 }
 
+func GetHexStringFromBigInt(b *big.Int) string {
+	return h.EncodeToString(b.Bytes())
+}
+
 func GetBytesFromHexString(hex string) []byte {
 	b, _ := h.DecodeString(hex)
 	return b

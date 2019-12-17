@@ -11,11 +11,11 @@ import (
 const idCommitment string = "17610192990552485611214212559447309706539616482639833145108503521837267798810"
 
 func TestRegister(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
@@ -24,36 +24,36 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegister_10IDs(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 10; i++ {
 		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
-		idx, err := id.Register(idc)
+		idx, err := id.Insert(idc)
 		assert.Nil(t, err, "register error")
 		assert.Equal(t, i, idx)
 	}
 }
 
 func TestRegister_Double(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
-	idx, err = id.Register(idc)
+	idx, err = id.Insert(idc)
 	assert.NotNil(t, err, "should not register successfully")
 }
 
 func TestUpdate(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
@@ -62,11 +62,11 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestUpdate_IncorrectIdx(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
@@ -75,11 +75,11 @@ func TestUpdate_IncorrectIdx(t *testing.T) {
 }
 
 func TestUpdate_IncorrectContent(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
@@ -88,11 +88,11 @@ func TestUpdate_IncorrectContent(t *testing.T) {
 }
 
 func TestIsMember(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 
@@ -100,16 +100,16 @@ func TestIsMember(t *testing.T) {
 }
 
 func TestIsMember2(t *testing.T) {
-	id, err := NewIdentityImpWithTreeLevel(10)
+	id, err := NewIdentityPoolWithTreeLevel(10)
 	assert.Nil(t, err, "new identity instance error")
 
 	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
-	idx, err := id.Register(idc)
+	idx, err := id.Insert(idc)
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 0, idx)
 	root1 := id.tree.GetRoot()
 
-	idx, err = id.Register(big.NewInt(10))
+	idx, err = id.Insert(big.NewInt(10))
 	assert.Nil(t, err, "register error")
 	assert.Equal(t, 1, idx)
 
