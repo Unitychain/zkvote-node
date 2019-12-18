@@ -22,7 +22,6 @@ require (
 	github.com/libp2p/go-libp2p-discovery v0.2.0
 	github.com/libp2p/go-libp2p-examples v0.1.0 // indirect
 	github.com/libp2p/go-libp2p-kad-dht v0.3.0
-	github.com/libp2p/go-libp2p-peer v0.2.0 // indirect
 	github.com/libp2p/go-libp2p-pubsub v0.2.1
 	github.com/libp2p/go-libp2p-record v0.1.1
 	github.com/manifoldco/promptui v0.3.2

@@ -31,7 +31,6 @@ type Voter struct {
 
 // NewVoter ...
 func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Context, verificationKey string) (*Voter, error) {
-
 	id, err := NewIdentityPool()
 	if nil != err {
 		return nil, err
@@ -131,7 +130,6 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 			utils.LogInfof("Got registed id commitment, %v", identityInt)
 			continue
 		}
-		// identityInt := utils.GetBigIntFromHexString(hex.EncodeToString(m.GetData()))
 		_, err = v.Insert(identityInt)
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
