@@ -211,9 +211,10 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 func (m *MerkleTree) GetAllContent() []*big.Int {
 	lenWithContent := 0
 	for _, c := range m.content {
-		if b, _ := c.Equals(TreeContent{big.NewInt(0)}); b {
-			lenWithContent++
+		if b, e := c.Equals(TreeContent{big.NewInt(0)}); b || e != nil {
+			break
 		}
+		lenWithContent++
 	}
 	ids := make([]*big.Int, lenWithContent)
 	for i := 0; i < lenWithContent; i++ {
