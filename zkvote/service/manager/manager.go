@@ -21,9 +21,9 @@ import (
 
 // Manager ...
 type Manager struct {
+	*localContext.Context
 	subjProtocol *SubjectProtocol
 	idProtocol   *IdentityProtocol
-	*localContext.Context
 
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
@@ -31,6 +31,8 @@ type Manager struct {
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
 	voters            map[subject.HashHex]*voter.Voter
+
+	zkVerificationKey string
 }
 
 // NewManager ...
@@ -38,6 +40,7 @@ func NewManager(
 	pubsub *pubsub.PubSub,
 	dht *dht.IpfsDHT,
 	lc *localContext.Context,
+	zkVerificationKey string,
 ) (*Manager, error) {
 	// Discovery
 	rd := routingDiscovery.NewRoutingDiscovery(dht)
@@ -50,6 +53,7 @@ func NewManager(
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 		voters:            make(map[subject.HashHex]*voter.Voter),
+		zkVerificationKey: zkVerificationKey,
 	}
 	m.subjProtocol = NewSubjectProtocol(m)
 	m.idProtocol = NewIdentityProtocol(m, make(chan bool, 1))
@@ -240,7 +244,7 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 
 func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
-	voter, err := voter.NewVoter(sub, m.ps, m.Context)
+	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
 	if nil != err {
 		return nil, err
 	}

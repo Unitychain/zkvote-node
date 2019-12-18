@@ -92,7 +92,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	s, _ := store.NewStore(d1, ds)
 	cache, _ := store.NewCache()
 	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
-	node.Manager, _ = manager.NewManager(ps, d1, node.Context)
+	node.Manager, _ = manager.NewManager(ps, d1, node.Context, "")
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {

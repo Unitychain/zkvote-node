@@ -21,6 +21,7 @@ type Voter struct {
 	subject *subject.Subject
 	*IdentityPool
 	*Proposal
+	verificationKey string
 
 	*localContext.Context
 	ps           *pubsub.PubSub
@@ -29,7 +30,7 @@ type Voter struct {
 }
 
 // NewVoter ...
-func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Context) (*Voter, error) {
+func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Context, verificationKey string) (*Voter, error) {
 
 	id, err := NewIdentityPool()
 	if nil != err {
@@ -50,11 +51,12 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 	}
 
 	v := &Voter{
-		subject:      subject,
-		IdentityPool: id,
-		Proposal:     p,
-		ps:           ps,
-		Context:      lc,
+		subject:         subject,
+		IdentityPool:    id,
+		Proposal:        p,
+		ps:              ps,
+		Context:         lc,
+		verificationKey: verificationKey,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
 			voteSub: voteSub,
@@ -68,7 +70,16 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 
 // Register .
 func (v *Voter) Register(idcHex identity.Identity) (int, error) {
-	return v.register(utils.GetBigIntFromHexString(idcHex.String()))
+	idc := utils.GetBigIntFromHexString(idcHex.String())
+	i, err := v.Insert(idc)
+	if nil != err {
+		return -1, err
+	}
+	err = v.ps.Publish(v.GetIdentitySub().Topic(), idc.Bytes())
+	if nil != err {
+		return -1, err
+	}
+	return i, nil
 }
 
 // GetSubject .
@@ -86,8 +97,9 @@ func (v *Voter) GetVoteSub() *pubsub.Subscription {
 	return v.subscription.voteSub
 }
 
-func (v *Voter) Vote() error {
-	return nil
+// Vote .
+func (v *Voter) Vote(proofs string) error {
+	return v.VoteWithProof(0, proofs, v.verificationKey)
 }
 
 func (v *Voter) Open() error {
@@ -101,18 +113,6 @@ func (v *Voter) GetAllIdentities() []identity.Identity {
 		hexArray[i] = *identity.NewIdentity(hex.EncodeToString(id.Bytes()))
 	}
 	return hexArray
-}
-
-func (v *Voter) register(idCommitment *big.Int) (int, error) {
-	i, err := v.Insert(idCommitment)
-	if nil != err {
-		return -1, err
-	}
-	err = v.ps.Publish(v.GetIdentitySub().Topic(), idCommitment.Bytes())
-	if nil != err {
-		return -1, err
-	}
-	return i, nil
 }
 
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
