@@ -15,7 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
@@ -131,10 +130,9 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
-	for _, idhash := range data.IdentitySet {
-		sp.manager.Register(subjectHash.Hex().String(), id.NewIdentity(idhash).String())
+	for _, id := range data.IdentitySet {
+		sp.manager.Insert(subjectHash.Hex().String(), id)
 	}
-	fmt.Println("***", subjectHash.Hex())
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]

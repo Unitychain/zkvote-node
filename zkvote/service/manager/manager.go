@@ -86,8 +86,11 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	return nil
 }
 
-// Register ...
-func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) error {
+//
+// Protocol Handler
+//
+// Insert ...
+func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) error {
 	hash, err := hex.DecodeString(subjectHashHex)
 	if err != nil {
 		return err
@@ -95,7 +98,9 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 	subjectHash := subject.Hash(hash)
 
 	voter := m.voters[subjectHash.Hex()]
-	idx, err := voter.Register(*id.NewIdentity(identityCommitmentHex))
+	identityInt := utils.GetBigIntFromHexString(identityCommitmentHex)
+
+	idx, err := voter.Insert(identityInt)
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
 		return err
