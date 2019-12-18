@@ -102,10 +102,12 @@ func (v *Voter) Vote(proofs string) error {
 	return v.VoteWithProof(0, proofs, v.verificationKey)
 }
 
-func (v *Voter) Open() error {
-	return nil
+// Open .
+func (v *Voter) Open() (yes, no int) {
+	return v.GetVotes(0)
 }
 
+// GetAllIdentities .
 func (v *Voter) GetAllIdentities() []identity.Identity {
 	ids := v.GetAllIds()
 	hexArray := make([]identity.Identity, len(ids))

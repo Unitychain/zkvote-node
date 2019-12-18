@@ -61,6 +61,9 @@ func NewManager(
 	return m, nil
 }
 
+//
+// vote/identity function
+//
 // Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
 	// Store the new subject locally
@@ -101,6 +104,9 @@ func (m *Manager) Register(subjectHashHex string, identityCommitmentHex string) 
 	return nil
 }
 
+//
+// pubsub function
+//
 // Join an existing subject
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
 	subs := m.GetCollectedSubjects()
@@ -160,19 +166,6 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 	return out, nil
 }
 
-// GetSubjectList ...
-func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
-	result := make([]*subject.Subject, 0)
-	collections, _ := m.Collect()
-	for s := range collections {
-		result = append(result, s)
-	}
-	for _, s := range m.Cache.GetCreatedSubjects() {
-		result = append(result, s)
-	}
-	return result, nil
-}
-
 // SyncIdentityIndex ...
 func (m *Manager) SyncIdentityIndex() error {
 	for _, voter := range m.voters {
@@ -203,6 +196,22 @@ func (m *Manager) GetProvider(key peer.ID) string {
 	return m.providers[key]
 }
 
+//
+// identity/subject getters
+//
+// GetSubjectList ...
+func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
+	result := make([]*subject.Subject, 0)
+	collections, _ := m.Collect()
+	for s := range collections {
+		result = append(result, s)
+	}
+	for _, s := range m.Cache.GetCreatedSubjects() {
+		result = append(result, s)
+	}
+	return result, nil
+}
+
 // GetJoinedSubjectTitles ...
 func (m *Manager) GetJoinedSubjectTitles() []string {
 	topics := m.ps.GetTopics()
@@ -222,8 +231,16 @@ func (m *Manager) GetCollectedSubjectTitles() []string {
 	for _, s := range m.Cache.GetCollectedSubjects() {
 		titles = append(titles, s.GetTitle())
 	}
-
 	return titles
+}
+
+// GetIdentityIndex ...
+func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
+	index := make(map[subject.HashHex][]id.Identity)
+	for k, v := range m.voters {
+		index[k] = v.GetAllIdentities()
+	}
+	return index
 }
 
 // GetIdentitySet ...
@@ -242,6 +259,9 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 	return hashSet, nil
 }
 
+//
+// internal functions
+//
 func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
 	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
@@ -270,13 +290,4 @@ func (m *Manager) announce() error {
 	fmt.Println("Announce")
 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 	return err
-}
-
-// GetIdentityIndex ...
-func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
-	index := make(map[subject.HashHex][]id.Identity)
-	for k, v := range m.voters {
-		index[k] = v.GetAllIdentities()
-	}
-	return index
 }
