@@ -1,6 +1,7 @@
 package voter
 
 import (
+	"fmt"
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
@@ -72,13 +73,12 @@ func (p *Proposal) Propose(q string) int {
 	return p.index - 1
 }
 
-// Vote : vote with zk proof
-func (p *Proposal) Vote(idx int, proofs string, vkString string) bool {
+// VoteWithProof : vote with zk proof
+func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error {
 
 	snarkVote := snark.Parse(proofs)
 	if !p.isValidVote(idx, snarkVote, vkString) {
-		utils.LogError("Not a valid vote!")
-		return false
+		return fmt.Errorf("not a valid vote")
 	}
 
 	bigNullHash, _ := big.NewInt(0).SetString(snarkVote.NullifierHash, 10)
@@ -90,7 +90,7 @@ func (p *Proposal) Vote(idx int, proofs string, vkString string) bool {
 		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, false)
 	}
 
-	return true
+	return nil
 }
 
 // Remove : remove a proposal from the list
