@@ -81,6 +81,11 @@ func (v *Voter) Register(idcHex identity.Identity) (int, error) {
 	return i, nil
 }
 
+// GetIdentityIndex .
+func (v *Voter) GetIdentityIndex(idcHex identity.Identity) int {
+	return v.GetIndex(utils.GetBigIntFromHexString(idcHex.String()))
+}
+
 // GetSubject .
 func (v *Voter) GetSubject() *subject.Subject {
 	return v.subject
