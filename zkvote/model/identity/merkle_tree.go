@@ -132,7 +132,7 @@ func (m *MerkleTree) GetRoot() *big.Int {
 // GetPath : get merkle path of a leaf
 func (m *MerkleTree) GetPath(value *big.Int) []byte {
 
-	idx := m.getIndexByValue(value)
+	idx := m.GetIndexByValue(value)
 	if idx == -1 {
 		utils.LogWarningf("Can NOT find index of value, %v", value)
 		return nil
@@ -158,7 +158,7 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 	if nil == value {
 		idx = 0
 	} else {
-		idx = m.getIndexByValue(value)
+		idx = m.GetIndexByValue(value)
 		if -1 == idx {
 			utils.LogWarningf("Can NOT find index of value, %v", value)
 			return nil, nil
@@ -225,16 +225,14 @@ func (m *MerkleTree) GetAllContent() []*big.Int {
 
 // IsExisted ...
 func (m *MerkleTree) IsExisted(value *big.Int) bool {
-	if 0 <= m.getIndexByValue(value) {
+	if 0 <= m.GetIndexByValue(value) {
 		return true
 	}
 	return false
 }
 
-//
-// Internal functions
-//
-func (m *MerkleTree) getIndexByValue(value *big.Int) int {
+// GetIndexByValue .
+func (m *MerkleTree) GetIndexByValue(value *big.Int) int {
 	for i, c := range m.content {
 		if eq, _ := c.Equals(TreeContent{value}); eq {
 			utils.LogDebugf("Got index, %d", i)
@@ -243,6 +241,10 @@ func (m *MerkleTree) getIndexByValue(value *big.Int) int {
 	}
 	return -1
 }
+
+//
+// Internal functions
+//
 
 func (m *MerkleTree) calculateRoot() (*big.Int, error) {
 

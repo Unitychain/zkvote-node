@@ -79,6 +79,11 @@ func (i *IdentityPool) GetAllIds() []*big.Int {
 	return i.tree.GetAllContent()
 }
 
+// GetIndex .
+func (i *IdentityPool) GetIndex(value *big.Int) int {
+	return i.tree.GetIndexByValue(value)
+}
+
 //
 // Internal functions
 //
