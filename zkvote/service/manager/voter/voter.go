@@ -121,6 +121,11 @@ func (v *Voter) GetAllIdentities() []identity.Identity {
 	return hexArray
 }
 
+// GetIdentityPaths .
+func (v *Voter) GetIdentityPaths(idcHex identity.Identity) ([]*big.Int, *big.Int) {
+	return v.GetIdentityTreePaths(utils.GetBigIntFromHexString(idcHex.String()))
+}
+
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {
 		m, err := subscription.Next(*v.Ctx)

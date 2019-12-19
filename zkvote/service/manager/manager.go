@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/discovery"
@@ -246,6 +247,18 @@ func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
 		index[k] = v.GetAllIdentities()
 	}
 	return index
+}
+
+// GetIdentityPaths .
+// return intermediate values and merkle root
+func (m *Manager) GetIdentityPaths(subjectHashHex string, identityCommitmentHex string) ([]*big.Int, *big.Int) {
+	hash, err := hex.DecodeString(subjectHashHex)
+	if err != nil {
+		return nil, nil
+	}
+	subjectHash := subject.Hash(hash)
+	voter := m.voters[subjectHash.Hex()]
+	return voter.GetIdentityPaths(*id.NewIdentity(identityCommitmentHex))
 }
 
 // GetIdentitySet ...
