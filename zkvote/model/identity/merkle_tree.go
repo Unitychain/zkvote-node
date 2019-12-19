@@ -44,8 +44,9 @@ type MerkleTree struct {
 	levels    uint8
 	nextIndex uint
 
-	root    *big.Int
-	content []merkletree.Content
+	root       *big.Int
+	content    []merkletree.Content
+	mapContent map[merkletree.Content]uint
 
 	hashStrategy hashWrapper.HashWrapper
 }
@@ -76,6 +77,11 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 	return tree, nil
 }
 
+func (m *MerkleTree) addContent(idx uint, value *big.Int) {
+	m.content[idx] = TreeContent{value}
+	m.mapContent[TreeContent{value}] = idx
+}
+
 // Insert : insert into to the merkle tree
 func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 	if value == nil {
@@ -86,7 +92,8 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 	}
 
 	currentIndex := m.nextIndex
-	m.content[currentIndex] = TreeContent{value}
+	m.addContent(currentIndex, value)
+	// m.content[currentIndex] = TreeContent{value}
 
 	root, err := m.calculateRoot()
 	if err != nil {
@@ -113,7 +120,8 @@ func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 		return fmt.Errorf("value of the index is not matched old value")
 	}
 
-	m.content[index] = TreeContent{newValue}
+	// m.content[index] = TreeContent{newValue}
+	m.addContent(index, newValue)
 	root, err := m.calculateRoot()
 	if err != nil {
 		return err
@@ -209,13 +217,7 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 
 // GetAllContent .
 func (m *MerkleTree) GetAllContent() []*big.Int {
-	lenWithContent := 0
-	for _, c := range m.content {
-		if b, e := c.Equals(TreeContent{big.NewInt(0)}); b || e != nil {
-			break
-		}
-		lenWithContent++
-	}
+	lenWithContent := len(m.mapContent)
 	ids := make([]*big.Int, lenWithContent)
 	for i := 0; i < lenWithContent; i++ {
 		ids[i] = m.content[i].(TreeContent).x
@@ -233,12 +235,15 @@ func (m *MerkleTree) IsExisted(value *big.Int) bool {
 
 // GetIndexByValue .
 func (m *MerkleTree) GetIndexByValue(value *big.Int) int {
-	for i, c := range m.content {
-		if eq, _ := c.Equals(TreeContent{value}); eq {
-			utils.LogDebugf("Got index, %d", i)
-			return i
-		}
+	if i, ok := m.mapContent[TreeContent{value}]; ok {
+		return int(i)
 	}
+	// for i, c := range m.content {
+	// 	if eq, _ := c.Equals(TreeContent{value}); eq {
+	// 		utils.LogDebugf("Got index, %d", i)
+	// 		return i
+	// 	}
+	// }
 	return -1
 }
 
