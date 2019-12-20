@@ -2,10 +2,8 @@ package manager
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/discovery"
@@ -93,9 +91,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 // Insert ...
 func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) error {
 	voter := m.voters[subject.HashHex(subjectHashHex)]
-	identityInt := utils.GetBigIntFromHexString(identityCommitmentHex)
-
-	idx, err := voter.Insert(identityInt)
+	idx, err := voter.Insert(*id.NewIdentity(identityCommitmentHex))
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
 		return err
@@ -244,10 +240,19 @@ func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
 }
 
 // GetIdentityPath .
-// return intermediate values and merkle root
-func (m *Manager) GetIdentityPath(subjectHashHex string, identityCommitmentHex string) ([]*big.Int, *big.Int) {
+// return intermediate values and merkle root in hex string
+func (m *Manager) GetIdentityPath(
+	subjectHashHex string,
+	identityCommitmentHex string) (
+	[]string, string) {
+
 	voter := m.voters[subject.HashHex(subjectHashHex)]
-	return voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
+	idPaths, root := voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
+	hexIDPaths := make([]string, len(idPaths))
+	for i, p := range idPaths {
+		hexIDPaths[i] = p.Hex()
+	}
+	return hexIDPaths, root.Hex()
 }
 
 // GetIdentitySet ...
@@ -260,7 +265,7 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 	set := v.GetAllIds()
 	hashSet := make([]id.Identity, len(set))
 	for i, v := range set {
-		hashSet[i] = *id.NewIdentity(hex.EncodeToString(v.Bytes()))
+		hashSet[i] = *id.NewIdentity(v.Hex())
 	}
 
 	return hashSet, nil
@@ -270,8 +275,8 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 // CLI Debugger
 //
 // GetVoterIdentities ...
-func (m *Manager) GetVoterIdentities() map[subject.HashHex][]*big.Int {
-	result := make(map[subject.HashHex][]*big.Int)
+func (m *Manager) GetVoterIdentities() map[subject.HashHex][]*id.IdPathElement {
+	result := make(map[subject.HashHex][]*id.IdPathElement)
 
 	for k, v := range m.voters {
 		result[k] = v.GetAllIds()
