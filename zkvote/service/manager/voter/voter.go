@@ -1,7 +1,6 @@
 package voter
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -67,13 +66,23 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 	return v, nil
 }
 
-// Register .
-func (v *Voter) Register(idcHex identity.Identity) (int, error) {
-	idc := utils.GetBigIntFromHexString(idcHex.String())
-	i, err := v.Insert(idc)
+// Insert .
+func (v *Voter) Insert(idcHex identity.Identity) (int, error) {
+	i, err := v.InsertIdc(identityToPathElement(idcHex))
 	if nil != err {
 		return -1, err
 	}
+	return i, nil
+}
+
+// Register .
+func (v *Voter) Register(idcHex identity.Identity) (int, error) {
+	i, err := v.Insert(idcHex)
+	if nil != err {
+		return -1, err
+	}
+
+	idc := utils.GetBigIntFromHexString(idcHex.String())
 	err = v.ps.Publish(v.GetIdentitySub().Topic(), idc.Bytes())
 	if nil != err {
 		return -1, err
@@ -83,7 +92,7 @@ func (v *Voter) Register(idcHex identity.Identity) (int, error) {
 
 // GetIdentityIndex .
 func (v *Voter) GetIdentityIndex(idcHex identity.Identity) int {
-	return v.GetIndex(utils.GetBigIntFromHexString(idcHex.String()))
+	return v.GetIndex(identityToPathElement(idcHex))
 }
 
 // GetSubject .
@@ -116,14 +125,14 @@ func (v *Voter) GetAllIdentities() []identity.Identity {
 	ids := v.GetAllIds()
 	hexArray := make([]identity.Identity, len(ids))
 	for i, id := range ids {
-		hexArray[i] = *identity.NewIdentity(hex.EncodeToString(id.Bytes()))
+		hexArray[i] = *identity.NewIdentity(id.Hex())
 	}
 	return hexArray
 }
 
 // GetIdentityPath .
-func (v *Voter) GetIdentityPath(idcHex identity.Identity) ([]*big.Int, *big.Int) {
-	return v.GetIdentityTreePath(utils.GetBigIntFromHexString(idcHex.String()))
+func (v *Voter) GetIdentityPath(idcHex identity.Identity) ([]*identity.IdPathElement, *identity.IdPathElement) {
+	return v.GetIdentityTreePath(identityToPathElement(idcHex))
 }
 
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
@@ -136,11 +145,11 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		utils.LogDebugf("identitySubHandler: Received message")
 
 		identityInt := big.NewInt(0).SetBytes(m.GetData())
-		if v.HasRegistered(identityInt) {
+		if v.HasRegistered(bigIntToPathElement(identityInt)) {
 			utils.LogInfof("Got registed id commitment, %v", identityInt)
 			continue
 		}
-		_, err = v.Insert(identityInt)
+		_, err = v.Insert(*identity.NewIdentity(utils.GetHexStringFromBigInt(identityInt)))
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
 		}
@@ -159,4 +168,18 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 		v.pubMsg[sub.Topic()] = append(msgs, m)
 		v.Mutex.Unlock()
 	}
+}
+
+//
+// helpers
+//
+
+func identityToPathElement(id identity.Identity) *identity.IdPathElement {
+	// TODO: do check
+	bigValue := big.NewInt(0).SetBytes(id.Byte())
+	return bigIntToPathElement(bigValue)
+}
+
+func bigIntToPathElement(value *big.Int) *identity.IdPathElement {
+	return identity.NewIdPathElement(identity.NewTreeContent(value))
 }

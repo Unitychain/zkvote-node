@@ -1,9 +1,5 @@
 package subject
 
-import (
-	"math/big"
-)
-
 // A GenericError is the default error message that is generated.
 // For certain status codes there are more appropriate error structures.
 //
@@ -75,7 +71,7 @@ type JoinResponse struct {
 type GetIdentityPathResponse struct {
 	// in: body
 	Results struct {
-		Path []*big.Int `json:"path"`
-		Root *big.Int   `json:"root"`
+		Path []string `json:"path"`
+		Root string   `json:"root"`
 	} `json:"results"`
 }

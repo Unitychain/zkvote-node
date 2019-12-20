@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/service/snark"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
@@ -204,7 +205,7 @@ func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) boo
 		return false
 	}
 	bigRoot, _ := big.NewInt(0).SetString(root, 10)
-	if !p.members.IsMember(bigRoot) {
+	if !p.members.IsMember(NewIdPathElement(NewTreeContent(bigRoot))) {
 		utils.LogWarningf("Not member, %v\n", root)
 		return false
 	}

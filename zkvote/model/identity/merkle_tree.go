@@ -19,6 +19,10 @@ type TreeContent struct {
 	x *big.Int
 }
 
+func NewTreeContent(value *big.Int) *TreeContent {
+	return &TreeContent{value}
+}
+
 //CalculateHash hashes the values of a TreeContent
 func (t TreeContent) CalculateHash() ([]byte, error) {
 	return t.x.Bytes(), nil
@@ -32,7 +36,24 @@ func (t TreeContent) CalculateHash() ([]byte, error) {
 
 //Equals tests for equality of two Contents
 func (t TreeContent) Equals(other merkletree.Content) (bool, error) {
+	// return t.x.String() == other.(TreeContent).x.String(), nil
 	return 0 == t.x.Cmp(other.(TreeContent).x), nil
+}
+
+func (t TreeContent) String() string {
+	return t.x.String()
+}
+
+func (t TreeContent) Hex() string {
+	return utils.GetHexStringFromBigInt(t.x)
+}
+
+func (t TreeContent) Bytes() []byte {
+	return t.x.Bytes()
+}
+
+func (t TreeContent) BigInt() *big.Int {
+	return t.x
 }
 
 //
@@ -44,7 +65,7 @@ type MerkleTree struct {
 	levels    uint8
 	nextIndex uint
 
-	root       *big.Int
+	root       *TreeContent
 	content    []merkletree.Content
 	mapContent map[merkletree.Content]uint
 
@@ -78,13 +99,13 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 	return tree, nil
 }
 
-func (m *MerkleTree) addContent(idx uint, value *big.Int) {
-	m.content[idx] = TreeContent{value}
-	m.mapContent[TreeContent{value}] = idx
+func (m *MerkleTree) addContent(idx uint, value *TreeContent) {
+	m.content[idx] = value
+	m.mapContent[value] = idx
 }
 
 // Insert : insert into to the merkle tree
-func (m *MerkleTree) Insert(value *big.Int) (int, error) {
+func (m *MerkleTree) Insert(value *TreeContent) (int, error) {
 	if value == nil {
 		return -1, fmt.Errorf("invalid input value")
 	}
@@ -94,7 +115,6 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 
 	currentIndex := m.nextIndex
 	m.addContent(currentIndex, value)
-	// m.content[currentIndex] = TreeContent{value}
 
 	root, err := m.calculateRoot()
 	if err != nil {
@@ -108,15 +128,15 @@ func (m *MerkleTree) Insert(value *big.Int) (int, error) {
 }
 
 // Update : update a leaf of this merkle tree
-func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
+func (m *MerkleTree) Update(index uint, oldValue, newValue *TreeContent) error {
 
-	if 0 == oldValue.Cmp(newValue) {
+	if b, _ := oldValue.Equals(*newValue); b {
 		return fmt.Errorf("old and new value are the same")
 	}
 	if !m.IsExisted(oldValue) {
 		return fmt.Errorf("old value not existed, %v", oldValue)
 	}
-	if eq, _ := m.content[index].Equals(TreeContent{oldValue}); !eq {
+	if eq, _ := m.content[index].Equals(*oldValue); !eq {
 		// utils.LogErrorf("value of the index is not matched old value.")
 		return fmt.Errorf("value of the index is not matched old value")
 	}
@@ -134,12 +154,12 @@ func (m *MerkleTree) Update(index uint, oldValue, newValue *big.Int) error {
 }
 
 // GetRoot : get current merkle root
-func (m *MerkleTree) GetRoot() *big.Int {
+func (m *MerkleTree) GetRoot() *TreeContent {
 	return m.root
 }
 
 // GetPath : get merkle path of a leaf
-func (m *MerkleTree) GetPath(value *big.Int) []byte {
+func (m *MerkleTree) GetPath(value *TreeContent) []byte {
 
 	idx := m.GetIndexByValue(value)
 	if idx == -1 {
@@ -161,7 +181,7 @@ func (m *MerkleTree) GetPath(value *big.Int) []byte {
 }
 
 // GetIntermediateValues : get all intermediate values of a leaf
-func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int) {
+func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, *TreeContent) {
 
 	var idx int
 	if nil == value {
@@ -175,23 +195,23 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 	}
 
 	currentIdx := idx
-	imv := make([]*big.Int, m.levels)
-	tree := make([][]*big.Int, m.levels)
+	imv := make([]*TreeContent, m.levels)
+	tree := make([][]*TreeContent, m.levels)
 	for i := 0; i < int(m.levels); i++ {
 
 		numElemofLevel := int(math.Pow(2, float64(int(m.levels)-i)))
-		valuesOfLevel := make([]*big.Int, numElemofLevel)
+		valuesOfLevel := make([]*TreeContent, numElemofLevel)
 		for j := 0; j < numElemofLevel; j++ {
 			if 0 == i {
 				h, _ := m.content[j].CalculateHash()
-				valuesOfLevel[j] = big.NewInt(0).SetBytes(h)
+				valuesOfLevel[j] = &TreeContent{big.NewInt(0).SetBytes(h)}
 			} else {
-				h, err := m.hashStrategy.Hash([]*big.Int{tree[i-1][2*j], tree[i-1][2*j+1], big.NewInt(0)})
+				h, err := m.hashStrategy.Hash([]*big.Int{tree[i-1][2*j].x, tree[i-1][2*j+1].x, big.NewInt(0)})
 				if err != nil {
 					utils.LogFatalf("ERROR: calculate mimc7 error, %v", err.Error())
 					return nil, nil
 				}
-				valuesOfLevel[j] = h
+				valuesOfLevel[j] = &TreeContent{h}
 			}
 		}
 
@@ -208,26 +228,26 @@ func (m *MerkleTree) GetIntermediateValues(value *big.Int) ([]*big.Int, *big.Int
 		currentIdx = int(currentIdx / 2)
 	}
 
-	root, err := m.hashStrategy.Hash([]*big.Int{tree[m.levels-1][0], tree[m.levels-1][1], big.NewInt(0)})
+	root, err := m.hashStrategy.Hash([]*big.Int{tree[m.levels-1][0].x, tree[m.levels-1][1].x, big.NewInt(0)})
 	if err != nil {
 		utils.LogFatalf("ERROR: calculate root through mimc7 error, %v", err.Error())
 		return nil, nil
 	}
-	return imv, root
+	return imv, &TreeContent{root}
 }
 
 // GetAllContent .
-func (m *MerkleTree) GetAllContent() []*big.Int {
+func (m *MerkleTree) GetAllContent() []*TreeContent {
 	lenWithContent := len(m.mapContent)
-	ids := make([]*big.Int, lenWithContent)
+	ids := make([]*TreeContent, lenWithContent)
 	for i := 0; i < lenWithContent; i++ {
-		ids[i] = m.content[i].(TreeContent).x
+		ids[i] = &TreeContent{m.content[i].(TreeContent).x}
 	}
 	return ids
 }
 
 // IsExisted ...
-func (m *MerkleTree) IsExisted(value *big.Int) bool {
+func (m *MerkleTree) IsExisted(value *TreeContent) bool {
 	if 0 <= m.GetIndexByValue(value) {
 		return true
 	}
@@ -235,12 +255,12 @@ func (m *MerkleTree) IsExisted(value *big.Int) bool {
 }
 
 // GetIndexByValue .
-func (m *MerkleTree) GetIndexByValue(value *big.Int) int {
-	// if i, ok := m.mapContent[TreeContent{value}]; ok {
+func (m *MerkleTree) GetIndexByValue(value *TreeContent) int {
+	// if i, ok := m.mapContent[value]; ok {
 	// 	return int(i)
 	// }
 	for i, c := range m.content {
-		if eq, _ := c.Equals(TreeContent{value}); eq {
+		if eq, _ := c.Equals(*value); eq {
 			utils.LogDebugf("Got index, %d", i)
 			return i
 		}
@@ -252,7 +272,7 @@ func (m *MerkleTree) GetIndexByValue(value *big.Int) int {
 // Internal functions
 //
 
-func (m *MerkleTree) calculateRoot() (*big.Int, error) {
+func (m *MerkleTree) calculateRoot() (*TreeContent, error) {
 
 	_, root := m.GetIntermediateValues(nil)
 	return root, nil

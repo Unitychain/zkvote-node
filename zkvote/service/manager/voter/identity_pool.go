@@ -1,14 +1,12 @@
 package voter
 
 import (
-	"math/big"
-
 	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // IdentityPool ...
 type IdentityPool struct {
-	rootHistory []*big.Int
+	rootHistory []*TreeContent
 	tree        *MerkleTree
 }
 
@@ -25,7 +23,7 @@ func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootHistory := []*big.Int{tree.GetRoot()}
+	rootHistory := []*TreeContent{tree.GetRoot()}
 
 	// TODO: load from DHT/PubSub
 
@@ -35,9 +33,10 @@ func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 	}, nil
 }
 
-// Insert : register id
-func (i *IdentityPool) Insert(idCommitment *big.Int) (int, error) {
-	idx, err := i.tree.Insert(idCommitment)
+// InsertIdc : register id
+func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
+	c := idCommitment.Content()
+	idx, err := i.tree.Insert(&c)
 	if err != nil {
 		// utils.LogErrorf("register error, %v", err.Error())
 		return -1, err
@@ -48,8 +47,9 @@ func (i *IdentityPool) Insert(idCommitment *big.Int) (int, error) {
 }
 
 // Update : update id
-func (i *IdentityPool) Update(index uint, oldIDCommitment, newIDCommitment *big.Int) error {
-	err := i.tree.Update(index, oldIDCommitment, newIDCommitment)
+func (i *IdentityPool) Update(index uint, oldIDCommitment, newIDCommitment *IdPathElement) error {
+	old, new := oldIDCommitment.Content(), newIDCommitment.Content()
+	err := i.tree.Update(index, &old, &new)
 	if err != nil {
 		// utils.LogErrorf("update id error, %v", err.Error())
 		return err
@@ -60,9 +60,9 @@ func (i *IdentityPool) Update(index uint, oldIDCommitment, newIDCommitment *big.
 }
 
 // IsMember : check if the merkle root is in the root list or not
-func (i *IdentityPool) IsMember(root *big.Int) bool {
+func (i *IdentityPool) IsMember(root *IdPathElement) bool {
 	for _, r := range i.rootHistory {
-		if 0 == r.Cmp(root) {
+		if b, _ := r.Equals(root.Content()); b {
 			return true
 		}
 	}
@@ -70,28 +70,41 @@ func (i *IdentityPool) IsMember(root *big.Int) bool {
 }
 
 // HasRegistered .
-func (i *IdentityPool) HasRegistered(idc *big.Int) bool {
-	return i.tree.IsExisted(idc)
+func (i *IdentityPool) HasRegistered(idc *IdPathElement) bool {
+	c := idc.Content()
+	return i.tree.IsExisted(&c)
 }
 
 // GetAllIds .
-func (i *IdentityPool) GetAllIds() []*big.Int {
-	return i.tree.GetAllContent()
+func (i *IdentityPool) GetAllIds() []*IdPathElement {
+	treeContents := i.tree.GetAllContent()
+	elements := make([]*IdPathElement, len(treeContents))
+	for i, c := range treeContents {
+		elements[i] = NewIdPathElement(c)
+	}
+	return elements
 }
 
 // GetIndex .
-func (i *IdentityPool) GetIndex(value *big.Int) int {
-	return i.tree.GetIndexByValue(value)
+func (i *IdentityPool) GetIndex(value *IdPathElement) int {
+	c := value.Content()
+	return i.tree.GetIndexByValue(&c)
 }
 
 // GetIdentityTreePath .
-func (i *IdentityPool) GetIdentityTreePath(value *big.Int) ([]*big.Int, *big.Int) {
-	return i.tree.GetIntermediateValues(value)
+func (i *IdentityPool) GetIdentityTreePath(value *IdPathElement) ([]*IdPathElement, *IdPathElement) {
+	c := value.Content()
+	inters, root := i.tree.GetIntermediateValues(&c)
+	elements := make([]*IdPathElement, len(inters))
+	for i, c := range inters {
+		elements[i] = NewIdPathElement(c)
+	}
+	return elements, NewIdPathElement(root)
 }
 
 //
 // Internal functions
 //
-func (i *IdentityPool) appendRoot(r *big.Int) {
+func (i *IdentityPool) appendRoot(r *TreeContent) {
 	i.rootHistory = append(i.rootHistory, i.tree.GetRoot())
 }
