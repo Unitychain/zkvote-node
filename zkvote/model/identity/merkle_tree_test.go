@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const idCommitment string = "17610192990552485611214212559447309706539616482639833145108503521837267798810"
+
 func TestInitValue(t *testing.T) {
 	tree, err := NewMerkleTree(10)
 	assert.Nil(t, err, "new merkle tree instance error")
@@ -36,6 +38,7 @@ func TestInsert_10IDs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
 		idx, err := tree.Insert(idc)
+
 		assert.Nil(t, err, "insert error")
 		assert.Equal(t, i, idx)
 	}
