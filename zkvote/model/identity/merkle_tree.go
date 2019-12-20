@@ -65,6 +65,7 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 		nextIndex:    0,
 		content:      content,
 		hashStrategy: hashWrapper.MiMC7New(),
+		mapContent:   make(map[merkletree.Content]uint),
 	}
 
 	root, err := tree.calculateRoot()
@@ -235,15 +236,15 @@ func (m *MerkleTree) IsExisted(value *big.Int) bool {
 
 // GetIndexByValue .
 func (m *MerkleTree) GetIndexByValue(value *big.Int) int {
-	if i, ok := m.mapContent[TreeContent{value}]; ok {
-		return int(i)
-	}
-	// for i, c := range m.content {
-	// 	if eq, _ := c.Equals(TreeContent{value}); eq {
-	// 		utils.LogDebugf("Got index, %d", i)
-	// 		return i
-	// 	}
+	// if i, ok := m.mapContent[TreeContent{value}]; ok {
+	// 	return int(i)
 	// }
+	for i, c := range m.content {
+		if eq, _ := c.Equals(TreeContent{value}); eq {
+			utils.LogDebugf("Got index, %d", i)
+			return i
+		}
+	}
 	return -1
 }
 
