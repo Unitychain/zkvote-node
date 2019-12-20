@@ -92,13 +92,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 //
 // Insert ...
 func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) error {
-	hash, err := hex.DecodeString(subjectHashHex)
-	if err != nil {
-		return err
-	}
-	subjectHash := subject.Hash(hash)
-
-	voter := m.voters[subjectHash.Hex()]
+	voter := m.voters[subject.HashHex(subjectHashHex)]
 	identityInt := utils.GetBigIntFromHexString(identityCommitmentHex)
 
 	idx, err := voter.Insert(identityInt)
@@ -249,16 +243,11 @@ func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
 	return index
 }
 
-// GetIdentityPaths .
+// GetIdentityPath .
 // return intermediate values and merkle root
-func (m *Manager) GetIdentityPaths(subjectHashHex string, identityCommitmentHex string) ([]*big.Int, *big.Int) {
-	hash, err := hex.DecodeString(subjectHashHex)
-	if err != nil {
-		return nil, nil
-	}
-	subjectHash := subject.Hash(hash)
-	voter := m.voters[subjectHash.Hex()]
-	return voter.GetIdentityPaths(*id.NewIdentity(identityCommitmentHex))
+func (m *Manager) GetIdentityPath(subjectHashHex string, identityCommitmentHex string) ([]*big.Int, *big.Int) {
+	voter := m.voters[subject.HashHex(subjectHashHex)]
+	return voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
 }
 
 // GetIdentitySet ...
@@ -278,6 +267,19 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 }
 
 //
+// CLI Debugger
+//
+// GetVoterIdentities ...
+func (m *Manager) GetVoterIdentities() map[subject.HashHex][]*big.Int {
+	result := make(map[subject.HashHex][]*big.Int)
+
+	for k, v := range m.voters {
+		result[k] = v.GetAllIds()
+	}
+	return result
+}
+
+//
 // internal functions
 //
 func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
@@ -286,7 +288,10 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	if nil != err {
 		return nil, err
 	}
-	voter.Register(*id.NewIdentity(idc))
+	_, err = voter.Register(*id.NewIdentity(idc))
+	if nil != err {
+		return nil, err
+	}
 
 	jsonStr, err := json.Marshal(sub.JSON())
 	if nil != err {

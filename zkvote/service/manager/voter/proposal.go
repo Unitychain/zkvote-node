@@ -56,6 +56,7 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 }
 
 // Propose : propose a question
+// TODO: Rename
 func (p *Proposal) Propose(q string) int {
 
 	bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
