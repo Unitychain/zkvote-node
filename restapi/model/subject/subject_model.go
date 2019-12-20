@@ -1,5 +1,9 @@
 package subject
 
+import (
+	"math/big"
+)
+
 // A GenericError is the default error message that is generated.
 // For certain status codes there are more appropriate error structures.
 //
@@ -25,6 +29,11 @@ type JoinRequest struct {
 	*JoinParams
 }
 
+// GetIdentityPathRequest ...
+type GetIdentityPathRequest struct {
+	*GetIdentityPathParams
+}
+
 // ProposeParams ...
 type ProposeParams struct {
 	Title              string `json:"title"`
@@ -34,6 +43,12 @@ type ProposeParams struct {
 
 // JoinParams ...
 type JoinParams struct {
+	SubjectHash        string `json:"subjectHash"`
+	IdentityCommitment string `json:"identityCommitment"`
+}
+
+// GetIdentityPathParams ...
+type GetIdentityPathParams struct {
 	SubjectHash        string `json:"subjectHash"`
 	IdentityCommitment string `json:"identityCommitment"`
 }
@@ -54,4 +69,13 @@ type ProposeResponse struct {
 type JoinResponse struct {
 	// in: body
 	Results string `json:"results"`
+}
+
+// GetIdentityPathResponse ...
+type GetIdentityPathResponse struct {
+	// in: body
+	Results struct {
+		Path []*big.Int `json:"path"`
+		Root *big.Int   `json:"root"`
+	} `json:"results"`
 }

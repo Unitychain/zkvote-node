@@ -172,6 +172,9 @@ func (node *Node) Info() error {
 	fmt.Println("Identity Index:")
 	fmt.Println(node.GetIdentityIndex())
 
+	fmt.Println("Voter Identity Merkle Tree Contents:")
+	fmt.Println(node.GetVoterIdentities())
+
 	return nil
 }
 

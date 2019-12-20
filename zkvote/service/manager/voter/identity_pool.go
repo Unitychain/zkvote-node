@@ -84,8 +84,8 @@ func (i *IdentityPool) GetIndex(value *big.Int) int {
 	return i.tree.GetIndexByValue(value)
 }
 
-// GetIdentityTreePaths .
-func (i *IdentityPool) GetIdentityTreePaths(value *big.Int) ([]*big.Int, *big.Int) {
+// GetIdentityTreePath .
+func (i *IdentityPool) GetIdentityTreePath(value *big.Int) ([]*big.Int, *big.Int) {
 	return i.tree.GetIntermediateValues(value)
 }
 

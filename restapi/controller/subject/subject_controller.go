@@ -17,10 +17,11 @@ import (
 // var logger = log.New("aries-framework/did-exchange")
 
 const (
-	operationID = "/subjects"
-	indexPath   = operationID
-	proposePath = operationID + "/propose"
-	joinPath    = operationID + "/join"
+	operationID        = "/subjects"
+	indexURL           = operationID
+	proposeURL         = operationID + "/propose"
+	joinURL            = operationID + "/join"
+	getIdentityPathURL = operationID + "/identity_path"
 	// receiveInvitationPath   = operationID + "/receive-invitation"
 	// acceptInvitationPath    = operationID + "/{id}/accept-invitation"
 	// connectionsByID         = operationID + "/{id}"
@@ -129,11 +130,39 @@ func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
 	if request.JoinParams != nil {
 		subjectHash = request.JoinParams.SubjectHash
 		identityCommitment = request.JoinParams.IdentityCommitment
-		c.Join(subjectHash, identityCommitment)
+		err = c.Join(subjectHash, identityCommitment)
+	}
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
 	}
 
 	response := subjectModel.JoinResponse{
 		Results: "Success",
+	}
+
+	c.writeResponse(rw, response)
+}
+
+func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) {
+	// logger.Debugf("Querying subjects")
+
+	var request subjectModel.GetIdentityPathRequest
+
+	err := getQueryParams(&request, req.URL.Query())
+
+	response := subjectModel.GetIdentityPathResponse{}
+	if request.GetIdentityPathParams != nil {
+		subjectHash := request.GetIdentityPathParams.SubjectHash
+		identityCommitment := request.GetIdentityPathParams.IdentityCommitment
+		path, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
+		response.Results.Path = path
+		response.Results.Root = root
+	}
+
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
 	}
 
 	c.writeResponse(rw, response)
@@ -181,9 +210,10 @@ func (c *Controller) GetRESTHandlers() []controller.Handler {
 func (c *Controller) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []controller.Handler{
-		controller.NewHTTPHandler(indexPath, http.MethodGet, c.index),
-		controller.NewHTTPHandler(proposePath, http.MethodPost, c.propose),
-		controller.NewHTTPHandler(joinPath, http.MethodPost, c.join),
+		controller.NewHTTPHandler(indexURL, http.MethodGet, c.index),
+		controller.NewHTTPHandler(proposeURL, http.MethodPost, c.propose),
+		controller.NewHTTPHandler(joinURL, http.MethodPost, c.join),
+		controller.NewHTTPHandler(getIdentityPathURL, http.MethodGet, c.getIdentityPath),
 		// support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		// support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
 		// support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
