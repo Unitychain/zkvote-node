@@ -38,6 +38,7 @@ func TestInsert_10IDs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
 		idx, err := tree.Insert(&TreeContent{idc})
+		tree.GetIntermediateValues(&TreeContent{idc})
 
 		assert.Nil(t, err, "insert error")
 		assert.Equal(t, i, idx)

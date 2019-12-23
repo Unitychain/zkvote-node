@@ -244,15 +244,15 @@ func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
 func (m *Manager) GetIdentityPath(
 	subjectHashHex string,
 	identityCommitmentHex string) (
-	[]string, string) {
+	[]string, []int, string) {
 
 	voter := m.voters[subject.HashHex(subjectHashHex)]
-	idPaths, root := voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
+	idPaths, idPathIndexes, root := voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
 	hexIDPaths := make([]string, len(idPaths))
 	for i, p := range idPaths {
 		hexIDPaths[i] = p.Hex()
 	}
-	return hexIDPaths, root.Hex()
+	return hexIDPaths, idPathIndexes, root.Hex()
 }
 
 // GetIdentitySet ...

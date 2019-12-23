@@ -92,14 +92,14 @@ func (i *IdentityPool) GetIndex(value *IdPathElement) int {
 }
 
 // GetIdentityTreePath .
-func (i *IdentityPool) GetIdentityTreePath(value *IdPathElement) ([]*IdPathElement, *IdPathElement) {
+func (i *IdentityPool) GetIdentityTreePath(value *IdPathElement) ([]*IdPathElement, []int, *IdPathElement) {
 	c := value.Content()
-	inters, root := i.tree.GetIntermediateValues(&c)
+	inters, interIdxs, root := i.tree.GetIntermediateValues(&c)
 	elements := make([]*IdPathElement, len(inters))
 	for i, c := range inters {
 		elements[i] = NewIdPathElement(c)
 	}
-	return elements, NewIdPathElement(root)
+	return elements, interIdxs, NewIdPathElement(root)
 }
 
 //
