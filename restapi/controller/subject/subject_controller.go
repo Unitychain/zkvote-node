@@ -21,6 +21,7 @@ const (
 	indexURL           = operationID
 	proposeURL         = operationID + "/propose"
 	joinURL            = operationID + "/join"
+	voteURL            = operationID + "/vote"
 	getIdentityPathURL = operationID + "/identity_path"
 	// receiveInvitationPath   = operationID + "/receive-invitation"
 	// acceptInvitationPath    = operationID + "/{id}/accept-invitation"
@@ -144,6 +145,40 @@ func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
 	c.writeResponse(rw, response)
 }
 
+func (c *Controller) vote(rw http.ResponseWriter, req *http.Request) {
+	// logger.Debugf("Querying subjects")
+
+	var request subjectModel.VoteRequest
+
+	err := req.ParseMultipartForm(0)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	err = getQueryParams(&request, req.Form)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	if request.VoteParams != nil {
+		subjectHash := request.VoteParams.SubjectHash
+		proof := request.VoteParams.Proof
+		err = c.Vote(subjectHash, proof)
+	}
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	response := subjectModel.VoteResponse{
+		Results: "Success",
+	}
+
+	c.writeResponse(rw, response)
+}
+
 func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) {
 	// logger.Debugf("Querying subjects")
 
@@ -155,8 +190,9 @@ func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) 
 	if request.GetIdentityPathParams != nil {
 		subjectHash := request.GetIdentityPathParams.SubjectHash
 		identityCommitment := request.GetIdentityPathParams.IdentityCommitment
-		path, _, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
+		path, index, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
 		response.Results.Path = path
+		response.Results.Index = index
 		response.Results.Root = root
 	}
 
@@ -213,10 +249,10 @@ func (c *Controller) registerHandler() {
 		controller.NewHTTPHandler(indexURL, http.MethodGet, c.index),
 		controller.NewHTTPHandler(proposeURL, http.MethodPost, c.propose),
 		controller.NewHTTPHandler(joinURL, http.MethodPost, c.join),
+		controller.NewHTTPHandler(voteURL, http.MethodPost, c.vote),
 		controller.NewHTTPHandler(getIdentityPathURL, http.MethodGet, c.getIdentityPath),
 		// support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		// support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
-		// support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		// support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		// support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
 		// support.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),
