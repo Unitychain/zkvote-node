@@ -52,7 +52,17 @@ type IdPathElement struct {
 func NewIdPathElement(t *TreeContent) *IdPathElement {
 	return &IdPathElement{t}
 }
-func (i IdPathElement) String() string       { return i.e.String() }
-func (i IdPathElement) Hex() string          { return i.e.Hex() }
+func (i IdPathElement) String() string {
+	if nil == i.e || 0 == i.e.BigInt().Cmp(big.NewInt(0)) {
+		return "0"
+	}
+	return i.e.String()
+}
+func (i IdPathElement) Hex() string {
+	if nil == i.e || 0 == i.e.BigInt().Cmp(big.NewInt(0)) {
+		return "0x0"
+	}
+	return i.e.Hex()
+}
 func (i IdPathElement) BigInt() *big.Int     { return i.e.BigInt() }
 func (i IdPathElement) Content() TreeContent { return *i.e }

@@ -41,10 +41,16 @@ func (t TreeContent) Equals(other merkletree.Content) (bool, error) {
 }
 
 func (t TreeContent) String() string {
+	if nil == t.x || 0 == t.x.Cmp(big.NewInt(0)) {
+		return "0"
+	}
 	return t.x.String()
 }
 
 func (t TreeContent) Hex() string {
+	if nil == t.x || 0 == t.x.Cmp(big.NewInt(0)) {
+		return "0x0"
+	}
 	return utils.GetHexStringFromBigInt(t.x)
 }
 
