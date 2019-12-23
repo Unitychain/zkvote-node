@@ -155,7 +155,7 @@ func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) 
 	if request.GetIdentityPathParams != nil {
 		subjectHash := request.GetIdentityPathParams.SubjectHash
 		identityCommitment := request.GetIdentityPathParams.IdentityCommitment
-		path, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
+		path, _, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
 		response.Results.Path = path
 		response.Results.Root = root
 	}

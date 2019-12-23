@@ -131,7 +131,7 @@ func (v *Voter) GetAllIdentities() []identity.Identity {
 }
 
 // GetIdentityPath .
-func (v *Voter) GetIdentityPath(idcHex identity.Identity) ([]*identity.IdPathElement, *identity.IdPathElement) {
+func (v *Voter) GetIdentityPath(idcHex identity.Identity) ([]*identity.IdPathElement, []int, *identity.IdPathElement) {
 	return v.GetIdentityTreePath(identityToPathElement(idcHex))
 }
 

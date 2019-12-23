@@ -181,7 +181,7 @@ func (m *MerkleTree) GetPath(value *TreeContent) []byte {
 }
 
 // GetIntermediateValues : get all intermediate values of a leaf
-func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, *TreeContent) {
+func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, []int, *TreeContent) {
 
 	var idx int
 	if nil == value {
@@ -190,17 +190,19 @@ func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, 
 		idx = m.GetIndexByValue(value)
 		if -1 == idx {
 			utils.LogWarningf("Can NOT find index of value, %v", value)
-			return nil, nil
+			return nil, nil, nil
 		}
 	}
 
 	currentIdx := idx
 	imv := make([]*TreeContent, m.levels)
+	imi := make([]int, m.levels)
 	tree := make([][]*TreeContent, m.levels)
 	for i := 0; i < int(m.levels); i++ {
 
 		numElemofLevel := int(math.Pow(2, float64(int(m.levels)-i)))
 		valuesOfLevel := make([]*TreeContent, numElemofLevel)
+		imi[i] = currentIdx % 2
 		for j := 0; j < numElemofLevel; j++ {
 			if 0 == i {
 				h, _ := m.content[j].CalculateHash()
@@ -209,7 +211,7 @@ func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, 
 				h, err := m.hashStrategy.Hash([]*big.Int{tree[i-1][2*j].x, tree[i-1][2*j+1].x, big.NewInt(0)})
 				if err != nil {
 					utils.LogFatalf("ERROR: calculate mimc7 error, %v", err.Error())
-					return nil, nil
+					return nil, nil, nil
 				}
 				valuesOfLevel[j] = &TreeContent{h}
 			}
@@ -223,17 +225,17 @@ func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, 
 		// for j, v := range valuesOfLevel {
 		// 	utils.LogDebugf("%d - %v\n", j, v)
 		// }
-		// utils.LogDebugf("%v\n", &imv[i])
+		// utils.LogDebugf("%d\n", imi[i])
 		tree[i] = valuesOfLevel
 		currentIdx = int(currentIdx / 2)
 	}
-
+	utils.LogDebugf("%v\n", imi)
 	root, err := m.hashStrategy.Hash([]*big.Int{tree[m.levels-1][0].x, tree[m.levels-1][1].x, big.NewInt(0)})
 	if err != nil {
 		utils.LogFatalf("ERROR: calculate root through mimc7 error, %v", err.Error())
-		return nil, nil
+		return nil, nil, nil
 	}
-	return imv, &TreeContent{root}
+	return imv, imi, &TreeContent{root}
 }
 
 // GetAllContent .
@@ -274,6 +276,6 @@ func (m *MerkleTree) GetIndexByValue(value *TreeContent) int {
 
 func (m *MerkleTree) calculateRoot() (*TreeContent, error) {
 
-	_, root := m.GetIntermediateValues(nil)
+	_, _, root := m.GetIntermediateValues(nil)
 	return root, nil
 }
