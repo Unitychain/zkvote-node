@@ -25,6 +25,11 @@ type JoinRequest struct {
 	*JoinParams
 }
 
+// VoteRequest ...
+type VoteRequest struct {
+	*VoteParams
+}
+
 // GetIdentityPathRequest ...
 type GetIdentityPathRequest struct {
 	*GetIdentityPathParams
@@ -41,6 +46,12 @@ type ProposeParams struct {
 type JoinParams struct {
 	SubjectHash        string `json:"subjectHash"`
 	IdentityCommitment string `json:"identityCommitment"`
+}
+
+// VoteParams ...
+type VoteParams struct {
+	SubjectHash string `json:"subjectHash"`
+	Proof       string `json:"proof"`
 }
 
 // GetIdentityPathParams ...
@@ -67,11 +78,18 @@ type JoinResponse struct {
 	Results string `json:"results"`
 }
 
+// VoteResponse ...
+type VoteResponse struct {
+	// in: body
+	Results string `json:"results"`
+}
+
 // GetIdentityPathResponse ...
 type GetIdentityPathResponse struct {
 	// in: body
 	Results struct {
-		Path []string `json:"path"`
-		Root string   `json:"root"`
+		Path  []string `json:"path"`
+		Index []int    `json:"index"`
+		Root  string   `json:"root"`
 	} `json:"results"`
 }

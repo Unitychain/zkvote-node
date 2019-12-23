@@ -113,6 +113,14 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
 }
 
+// Vote ...
+func (m *Manager) Vote(subjectHashHex string, proof string) error {
+	voter := m.voters[subject.HashHex(subjectHashHex)]
+	err := voter.Vote(proof)
+
+	return err
+}
+
 // FindProposers ...
 func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
