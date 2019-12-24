@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/unitychain/zkvote-node/zkvote/service/subjectmanager"
+	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/service/manager/voter"
 )
 
 var idCommitment = [...]string{
@@ -24,7 +25,7 @@ var idCommitment = [...]string{
 }
 
 func TestRegister(t *testing.T) {
-	id, _ := voter.NewIdentity()
+	id, _ := voter.NewIdentityPool()
 	// New proposal
 	p, _ := voter.NewProposal(id)
 	qIdx := p.Propose("this is a question.")
@@ -35,15 +36,15 @@ func TestRegister(t *testing.T) {
 	for i, s := range idCommitment {
 		fmt.Println("")
 		idc, _ := big.NewInt(0).SetString(s, 10)
-		_, err := id.Register(idc)
+		_, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
 		assert.Nil(t, err)
 
 		// submit proof
-		dat, err := ioutil.ReadFile(fmt.Sprintf("../test_vector/vote%d.proof", i))
+		dat, err := ioutil.ReadFile(fmt.Sprintf("./vectors/vote%d.proof", i))
 		assert.Nil(t, err)
 
-		v := p.Vote(qIdx, string(dat), string(vkData))
-		assert.True(t, v)
+		err = p.VoteWithProof(qIdx, string(dat), string(vkData))
+		assert.Nil(t, err)
 
 		y, n = p.GetVotes(qIdx)
 	}
