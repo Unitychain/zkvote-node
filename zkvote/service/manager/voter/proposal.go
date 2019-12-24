@@ -6,7 +6,6 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
-	"github.com/unitychain/zkvote-node/zkvote/service/snark"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
@@ -87,7 +86,7 @@ func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error 
 		return fmt.Errorf("invalid input")
 	}
 
-	snarkVote, err := snark.Parse(proofs)
+	snarkVote, err := Parse(proofs)
 	if nil != err {
 		return err
 	}
@@ -189,7 +188,7 @@ func (p *Proposal) isFinished(idx int) bool {
 	return p.nullifiers[idx].votes.finished
 }
 
-func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) bool {
+func (p *Proposal) isValidVote(idx int, proofs *Vote, vkString string) bool {
 	if !p.checkIndex(idx) {
 		return false
 	}
@@ -222,7 +221,7 @@ func (p *Proposal) isValidVote(idx int, proofs *snark.Vote, vkString string) boo
 		return false
 	}
 
-	return snark.Verify(vkString, proofs.Proof, proofs.PublicSignal)
+	return Verify(vkString, proofs.Proof, proofs.PublicSignal)
 }
 
 func (p *Proposal) isVoted(idx int, nullifierHash string) bool {

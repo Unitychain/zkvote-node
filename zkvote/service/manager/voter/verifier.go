@@ -1,4 +1,4 @@
-package snark
+package voter
 
 import (
 	"encoding/json"
