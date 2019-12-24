@@ -120,9 +120,10 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 	return err
 }
 
-// Open .
+// Open ...
 func (m *Manager) Open(subjectHashHex string) (int, int) {
 	voter := m.voters[subject.HashHex(subjectHashHex)]
+
 	return voter.Open()
 }
 
