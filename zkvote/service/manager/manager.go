@@ -120,6 +120,12 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 	return err
 }
 
+// Open .
+func (m *Manager) Open(subjectHashHex string) (int, int) {
+	voter := m.voters[subject.HashHex(subjectHashHex)]
+	return voter.Open()
+}
+
 // FindProposers ...
 func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
