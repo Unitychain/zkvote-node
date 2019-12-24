@@ -82,8 +82,8 @@ func (p *Proposal) Propose(q string) int {
 
 // VoteWithProof : vote with zk proof
 func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error {
-	if 0 > idx || 0 == len(proofs) || 0 == len(vkString) {
-		utils.LogWarningf("invalid input: %d, %s, %s", idx, proofs, vkString)
+	if 0 < idx || 0 == len(proofs) || 0 == len(vkString) {
+		utils.LogWarningf("invalid input:\n %d,\n %s,\n %s", idx, proofs, vkString)
 		return fmt.Errorf("invalid input")
 	}
 

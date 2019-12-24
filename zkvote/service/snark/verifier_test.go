@@ -118,7 +118,7 @@ const vk = `{
 `
 
 func TestParse(t *testing.T) {
-	vote := Parse(proof)
+	vote, _ := Parse(proof)
 	assert.Equal(t, "8689527539353720499147190441125863458163151721613317120863488267899702105029", vote.Root)
 	assert.Equal(t, "2816172240193667514175132752992643557697925698066061870859177551815944593050", vote.NullifierHash)
 	assert.Equal(t, 4, len(vote.PublicSignal))
@@ -127,6 +127,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestVerify(t *testing.T) {
-	vote := Parse(proof)
+	vote, _ := Parse(proof)
 	assert.True(t, Verify(vk, vote.Proof, vote.PublicSignal))
 }
