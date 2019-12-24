@@ -94,7 +94,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	cache, _ := store.NewCache()
 	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
 
-	vkData, err := ioutil.ReadFile("./verification_key.json")
+	vkData, err := ioutil.ReadFile("./snark/verification_key.json")
 	if err != nil {
 		panic(err)
 	}
