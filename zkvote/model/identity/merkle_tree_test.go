@@ -101,3 +101,44 @@ func TestTreeUpdate_IncorrectContent(t *testing.T) {
 	err = tree.Update(uint(idx), &TreeContent{big.NewInt(100)}, &TreeContent{big.NewInt(100)})
 	assert.NotNil(t, err, "update error")
 }
+
+func TestGetAllContent(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(&TreeContent{idc})
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	c := tree.GetAllContent()
+	assert.NotNil(t, c)
+}
+
+func TestIsExisted(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	idc, _ := big.NewInt(0).SetString(idCommitment, 10)
+	idx, err := tree.Insert(&TreeContent{idc})
+	assert.Nil(t, err, "Insert error")
+	assert.Equal(t, 0, idx)
+
+	b := tree.IsExisted(&TreeContent{idc})
+	assert.True(t, b)
+}
+
+func TestGetIndexByValue(t *testing.T) {
+	tree, err := NewMerkleTree(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	for i := 0; i < 10; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idx, err := tree.Insert(&TreeContent{idc})
+		assert.Nil(t, err, "insert error")
+
+		index := tree.GetIndexByValue(&TreeContent{idc})
+
+		assert.Equal(t, idx, index)
+	}
+}

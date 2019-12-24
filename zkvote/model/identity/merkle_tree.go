@@ -249,7 +249,7 @@ func (m *MerkleTree) GetAllContent() []*TreeContent {
 	lenWithContent := len(m.mapContent)
 	ids := make([]*TreeContent, lenWithContent)
 	for i := 0; i < lenWithContent; i++ {
-		ids[i] = &TreeContent{m.content[i].(TreeContent).x}
+		ids[i] = &TreeContent{m.content[i].(*TreeContent).x}
 	}
 	return ids
 }
