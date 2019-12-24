@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -306,11 +305,7 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 		return nil, err
 	}
 
-	jsonStr, err := json.Marshal(sub.JSON())
-	if nil != err {
-		return nil, err
-	}
-	pid := voter.Propose(string(jsonStr))
+	pid := voter.Propose(sub.Hash().Hex().String())
 	_ = pid
 
 	m.voters[sub.Hash().Hex()] = voter

@@ -59,7 +59,7 @@ func (c *Controller) getSnarkData(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	Filename := "snark_data.zip"
+	Filename := "snark/snark_data.zip"
 	//Check if file exists and open
 	Openfile, err := os.Open(Filename)
 	defer Openfile.Close() //Close after function return
