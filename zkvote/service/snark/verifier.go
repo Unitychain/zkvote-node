@@ -20,21 +20,25 @@ type Vote struct {
 }
 
 // Parse : parse proof from json string to Vote struct
-func Parse(jsonProof string) *Vote {
+func Parse(jsonProof string) (*Vote, error) {
 
 	var vote Vote
 	err := json.Unmarshal([]byte(jsonProof), &vote)
 	if err != nil {
 		utils.LogErrorf("parse proof: unmarshal error %v", err.Error())
+		return nil, err
 	}
-	return &vote
+	return &vote, nil
 }
 
 // VerifyByFile : verify proof
 func VerifyByFile(vkPath string, pfPath string) bool {
 
 	dat, err := ioutil.ReadFile(pfPath)
-	proof := Parse(string(dat))
+	proof, err := Parse(string(dat))
+	if err != nil {
+		return false
+	}
 
 	vkFile, err := ioutil.ReadFile(vkPath)
 	if err != nil {

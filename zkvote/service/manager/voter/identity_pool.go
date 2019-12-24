@@ -25,8 +25,6 @@ func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 	}
 	rootHistory := []*TreeContent{tree.GetRoot()}
 
-	// TODO: load from DHT/PubSub
-
 	return &IdentityPool{
 		rootHistory: rootHistory,
 		tree:        tree,
@@ -38,7 +36,6 @@ func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 	c := idCommitment.Content()
 	idx, err := i.tree.Insert(&c)
 	if err != nil {
-		// utils.LogErrorf("register error, %v", err.Error())
 		return -1, err
 	}
 	i.appendRoot(i.tree.GetRoot())
@@ -51,7 +48,6 @@ func (i *IdentityPool) Update(index uint, oldIDCommitment, newIDCommitment *IdPa
 	old, new := oldIDCommitment.Content(), newIDCommitment.Content()
 	err := i.tree.Update(index, &old, &new)
 	if err != nil {
-		// utils.LogErrorf("update id error, %v", err.Error())
 		return err
 	}
 	i.appendRoot(i.tree.GetRoot())

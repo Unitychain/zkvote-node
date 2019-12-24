@@ -34,6 +34,9 @@ const HASH_NO = "851310577572458073175765163681919723210382297052837326346904442
 
 // NewProposal ...
 func NewProposal(identity *IdentityPool) (*Proposal, error) {
+	if nil == identity {
+		return nil, fmt.Errorf("Invalid input, need IdentityPool object")
+	}
 
 	nullifiers := map[int]*nullifier{
 		0: &nullifier{
@@ -47,8 +50,6 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 		}}
 	index := 0
 
-	// TODO: load data from DHT/PubSub
-
 	return &Proposal{
 		nullifiers: nullifiers,
 		index:      index,
@@ -59,6 +60,10 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 // Propose : propose a question
 // TODO: Rename
 func (p *Proposal) Propose(q string) int {
+	if 0 == len(q) {
+		utils.LogWarning("input qeustion in empty")
+		return -1
+	}
 
 	bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
 	p.nullifiers[p.index] = &nullifier{
@@ -77,8 +82,15 @@ func (p *Proposal) Propose(q string) int {
 
 // VoteWithProof : vote with zk proof
 func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error {
+	if 0 > idx || 0 == len(proofs) || 0 == len(vkString) {
+		utils.LogWarningf("invalid input: %d, %s, %s", idx, proofs, vkString)
+		return fmt.Errorf("invalid input")
+	}
 
-	snarkVote := snark.Parse(proofs)
+	snarkVote, err := snark.Parse(proofs)
+	if nil != err {
+		return err
+	}
 	if !p.isValidVote(idx, snarkVote, vkString) {
 		return fmt.Errorf("not a valid vote")
 	}
@@ -231,6 +243,10 @@ func isValidOpinion(hash string) bool {
 }
 
 func (p *Proposal) checkIndex(idx int) bool {
+	if 0 > idx {
+		utils.LogWarningf("invalid index, %d", idx)
+		return false
+	}
 	if idx > p.GetCurrentIdex() {
 		utils.LogWarningf("index (%d) is incorrect, max index is %d", idx, p.index)
 		return false
