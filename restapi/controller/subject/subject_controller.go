@@ -22,6 +22,7 @@ const (
 	proposeURL         = operationID + "/propose"
 	joinURL            = operationID + "/join"
 	voteURL            = operationID + "/vote"
+	openURL            = operationID + "/open"
 	getIdentityPathURL = operationID + "/identity_path"
 	// receiveInvitationPath   = operationID + "/receive-invitation"
 	// acceptInvitationPath    = operationID + "/{id}/accept-invitation"
@@ -179,6 +180,34 @@ func (c *Controller) vote(rw http.ResponseWriter, req *http.Request) {
 	c.writeResponse(rw, response)
 }
 
+func (c *Controller) open(rw http.ResponseWriter, req *http.Request) {
+	// logger.Debugf("Querying subjects")
+
+	var request subjectModel.OpenRequest
+
+	err := getQueryParams(&request, req.URL.Query())
+
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	response := subjectModel.OpenResponse{}
+	if request.OpenParams != nil {
+		subjectHash := request.OpenParams.SubjectHash
+		yes, no := c.Open(subjectHash)
+		response.Results.Yes = yes
+		response.Results.No = no
+	}
+
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	c.writeResponse(rw, response)
+}
+
 func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) {
 	// logger.Debugf("Querying subjects")
 
@@ -250,6 +279,7 @@ func (c *Controller) registerHandler() {
 		controller.NewHTTPHandler(proposeURL, http.MethodPost, c.propose),
 		controller.NewHTTPHandler(joinURL, http.MethodPost, c.join),
 		controller.NewHTTPHandler(voteURL, http.MethodPost, c.vote),
+		controller.NewHTTPHandler(openURL, http.MethodGet, c.open),
 		controller.NewHTTPHandler(getIdentityPathURL, http.MethodGet, c.getIdentityPath),
 		// support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		// support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
