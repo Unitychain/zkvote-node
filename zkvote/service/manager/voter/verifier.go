@@ -12,7 +12,7 @@ import (
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
-type Vote struct {
+type Ballot struct {
 	Root          string                     `json:"root"`
 	NullifierHash string                     `json:"nullifier_hash"`
 	Proof         *externalVerif.CircomProof `json:"proof"`
@@ -20,9 +20,9 @@ type Vote struct {
 }
 
 // Parse : parse proof from json string to Vote struct
-func Parse(jsonProof string) (*Vote, error) {
+func Parse(jsonProof string) (*Ballot, error) {
 
-	var vote Vote
+	var vote Ballot
 	err := json.Unmarshal([]byte(jsonProof), &vote)
 	if err != nil {
 		utils.LogErrorf("parse proof: unmarshal error %v", err.Error())

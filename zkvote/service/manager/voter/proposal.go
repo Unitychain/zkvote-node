@@ -56,15 +56,15 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 	}, nil
 }
 
-// Propose : propose a question
-// TODO: Rename
+// Propose : propose the hash of a question
 func (p *Proposal) Propose(q string) int {
 	if 0 == len(q) {
 		utils.LogWarning("input qeustion in empty")
 		return -1
 	}
 
-	bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
+	// bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
+	bigHashQus := utils.GetBigIntFromHexString(q)
 	p.nullifiers[p.index] = &nullifier{
 		// TODO: Div(8) is a workaround because a bits conversion issue in circom
 		hash:    bigHashQus.Div(bigHashQus, big.NewInt(8)),
@@ -188,7 +188,7 @@ func (p *Proposal) isFinished(idx int) bool {
 	return p.nullifiers[idx].votes.finished
 }
 
-func (p *Proposal) isValidVote(idx int, proofs *Vote, vkString string) bool {
+func (p *Proposal) isValidVote(idx int, proofs *Ballot, vkString string) bool {
 	if !p.checkIndex(idx) {
 		return false
 	}
