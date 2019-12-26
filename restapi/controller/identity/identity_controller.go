@@ -55,7 +55,7 @@ func (c *Controller) getSnarkData(rw http.ResponseWriter, req *http.Request) {
 
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -101,8 +101,11 @@ func (c *Controller) getSnarkData(rw http.ResponseWriter, req *http.Request) {
 }
 
 // writeGenericError writes given error to writer as generic error response
-func (c *Controller) writeGenericError(rw io.Writer, err error) {
-	errResponse := identityModel.GenericError{
+func (c *Controller) writeGenericError(rw http.ResponseWriter, err error, statusCode int) {
+	rw.WriteHeader(statusCode)
+	rw.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(rw).Encode(identityModel.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
 			Message string `json:"message"`
@@ -111,8 +114,7 @@ func (c *Controller) writeGenericError(rw io.Writer, err error) {
 			Code:    1,
 			Message: err.Error(),
 		},
-	}
-	c.writeResponse(rw, errResponse)
+	})
 }
 
 // writeResponse writes interface value to response

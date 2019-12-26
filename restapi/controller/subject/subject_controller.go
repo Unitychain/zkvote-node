@@ -60,13 +60,13 @@ func (c *Controller) index(rw http.ResponseWriter, req *http.Request) {
 
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
 	subjects, err := c.Manager.GetSubjectList()
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -86,13 +86,13 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 
 	err := req.ParseMultipartForm(0)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
 	err = getQueryParams(&request, req.Form)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -118,13 +118,13 @@ func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
 
 	err := req.ParseMultipartForm(0)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
 	err = getQueryParams(&request, req.Form)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -135,7 +135,7 @@ func (c *Controller) join(rw http.ResponseWriter, req *http.Request) {
 		err = c.Join(subjectHash, identityCommitment)
 	}
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -153,13 +153,13 @@ func (c *Controller) vote(rw http.ResponseWriter, req *http.Request) {
 
 	err := req.ParseMultipartForm(0)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
 	err = getQueryParams(&request, req.Form)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (c *Controller) vote(rw http.ResponseWriter, req *http.Request) {
 		err = c.Vote(subjectHash, proof)
 	}
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (c *Controller) open(rw http.ResponseWriter, req *http.Request) {
 	err := getQueryParams(&request, req.URL.Query())
 
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -201,7 +201,7 @@ func (c *Controller) open(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -226,7 +226,7 @@ func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) 
 	}
 
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -242,8 +242,11 @@ func subjectToJSON(s []*subject.Subject) []map[string]string {
 }
 
 // writeGenericError writes given error to writer as generic error response
-func (c *Controller) writeGenericError(rw io.Writer, err error) {
-	errResponse := subjectModel.GenericError{
+func (c *Controller) writeGenericError(rw http.ResponseWriter, err error, statusCode int) {
+	rw.WriteHeader(statusCode)
+	rw.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(rw).Encode(subjectModel.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
 			Message string `json:"message"`
@@ -252,8 +255,7 @@ func (c *Controller) writeGenericError(rw io.Writer, err error) {
 			Code:    1,
 			Message: err.Error(),
 		},
-	}
-	c.writeResponse(rw, errResponse)
+	})
 }
 
 // writeResponse writes interface value to response
