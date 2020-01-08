@@ -9,16 +9,16 @@ import (
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
-type vote struct {
+type state struct {
 	records  []*big.Int
 	opinion  []bool
 	finished bool
 }
 
 type nullifier struct {
-	content string
-	hash    *big.Int
-	votes   vote
+	content   string
+	hash      *big.Int
+	voteState state
 }
 
 // Proposal ...
@@ -41,7 +41,7 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 		0: &nullifier{
 			hash:    big.NewInt(0).SetBytes(crypto.Keccak256([]byte("empty"))),
 			content: "empty",
-			votes: vote{
+			voteState: state{
 				records:  []*big.Int{},
 				opinion:  []bool{},
 				finished: false,
@@ -69,7 +69,7 @@ func (p *Proposal) Propose(q string) int {
 		// TODO: Div(8) is a workaround because a bits conversion issue in circom
 		hash:    bigHashQus.Div(bigHashQus, big.NewInt(8)),
 		content: q,
-		votes: vote{
+		voteState: state{
 			opinion:  []bool{},
 			finished: false,
 		},
@@ -95,12 +95,12 @@ func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error 
 	}
 
 	bigNullHash, _ := big.NewInt(0).SetString(snarkVote.NullifierHash, 10)
-	p.nullifiers[idx].votes.records = append(p.nullifiers[idx].votes.records, bigNullHash)
+	p.nullifiers[idx].voteState.records = append(p.nullifiers[idx].voteState.records, bigNullHash)
 
 	if snarkVote.PublicSignal[2] == HASH_YES {
-		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, true)
+		p.nullifiers[idx].voteState.opinion = append(p.nullifiers[idx].voteState.opinion, true)
 	} else {
-		p.nullifiers[idx].votes.opinion = append(p.nullifiers[idx].votes.opinion, false)
+		p.nullifiers[idx].voteState.opinion = append(p.nullifiers[idx].voteState.opinion, false)
 	}
 
 	return nil
@@ -119,7 +119,7 @@ func (p *Proposal) Close(idx int) {
 	if !p.checkIndex(idx) {
 		return
 	}
-	p.nullifiers[idx].votes.finished = true
+	p.nullifiers[idx].voteState.finished = true
 }
 
 // HasProposal : check proposal exists or not
@@ -155,7 +155,7 @@ func (p *Proposal) GetVotes(idx int) (yes, no int) {
 	if nul == nil {
 		return -1, -1
 	}
-	ops := nul.votes.opinion
+	ops := nul.voteState.opinion
 
 	for _, o := range ops {
 		if true == o {
@@ -185,7 +185,7 @@ func (p *Proposal) getProposal(idx int) *nullifier {
 // Internal functions
 //
 func (p *Proposal) isFinished(idx int) bool {
-	return p.nullifiers[idx].votes.finished
+	return p.nullifiers[idx].voteState.finished
 }
 
 func (p *Proposal) isValidVote(idx int, proofs *Ballot, vkString string) bool {
@@ -226,7 +226,7 @@ func (p *Proposal) isValidVote(idx int, proofs *Ballot, vkString string) bool {
 
 func (p *Proposal) isVoted(idx int, nullifierHash string) bool {
 	bigNullHash, _ := big.NewInt(0).SetString(nullifierHash, 10)
-	for _, r := range p.nullifiers[idx].votes.records {
+	for _, r := range p.nullifiers[idx].voteState.records {
 		if 0 == bigNullHash.Cmp(r) {
 			return true
 		}
