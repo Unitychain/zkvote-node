@@ -1,9 +1,11 @@
 package voter
 
 import (
+	"fmt"
 	"math/big"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
@@ -20,6 +22,7 @@ type Voter struct {
 	subject *subject.Subject
 	*IdentityPool
 	*Proposal
+	ballotMap       ba.Map
 	verificationKey string
 
 	*localContext.Context
@@ -54,6 +57,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 		Proposal:        p,
 		ps:              ps,
 		Context:         lc,
+		ballotMap:       ba.NewMap(),
 		verificationKey: verificationKey,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
@@ -62,7 +66,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 	}
 
 	go v.identitySubHandler(v.subject.Hash(), v.subscription.idSub)
-	// go v.voteSubHandler(v.subscription.idSub)
+	go v.voteSubHandler(v.subscription.voteSub)
 	return v, nil
 }
 
@@ -110,9 +114,34 @@ func (v *Voter) GetVoteSub() *pubsub.Subscription {
 	return v.subscription.voteSub
 }
 
+// GetBallotMap ...
+func (v *Voter) GetBallotMap() ba.Map {
+	return v.ballotMap
+}
+
 // Vote .
-func (v *Voter) Vote(proofs string) error {
-	return v.VoteWithProof(0, proofs, v.verificationKey)
+func (v *Voter) Vote(ballot *ba.Ballot) error {
+	bytes, err := ballot.Byte()
+	if err != nil {
+		return err
+	}
+
+	// Check membership
+	bigRoot, _ := big.NewInt(0).SetString(ballot.Root, 10)
+	if !v.IsMember(identity.NewIdPathElement(identity.NewTreeContent(bigRoot))) {
+		return fmt.Errorf("Not a member")
+	}
+
+	// Update voteState
+	err = v.VoteWithProof(ballot, v.verificationKey)
+	if err != nil {
+		return err
+	}
+
+	// Store ballot
+	v.ballotMap[ballot.Hash().Hex()] = ballot
+
+	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
 }
 
 // Open .
@@ -140,10 +169,11 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		m, err := subscription.Next(*v.Ctx)
 		if err != nil {
 			utils.LogErrorf("Failed to get identity subscription, %v", err.Error())
-			return
+			continue
 		}
 		utils.LogDebugf("identitySubHandler: Received message")
 
+		// TODO: Same logic as Register
 		identityInt := big.NewInt(0).SetBytes(m.GetData())
 		if v.HasRegistered(bigIntToPathElement(identityInt)) {
 			utils.LogInfof("Got registed id commitment, %v", identityInt)
@@ -152,6 +182,7 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		_, err = v.Insert(*identity.NewIdentity(utils.GetHexStringFromBigInt(identityInt)))
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
+			continue
 		}
 	}
 }
@@ -161,12 +192,36 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 		m, err := sub.Next(*v.Ctx)
 		if err != nil {
 			utils.LogErrorf("Failed to get vote subscription, %v", err.Error())
-			return
+			continue
 		}
-		v.Mutex.Lock()
-		msgs := v.pubMsg[sub.Topic()]
-		v.pubMsg[sub.Topic()] = append(msgs, m)
-		v.Mutex.Unlock()
+		utils.LogDebugf("voteSubHandler: Received message")
+
+		// Get Ballot
+		ballotStr := string(m.GetData())
+		ballot, err := ba.NewBallot(ballotStr)
+		if err != nil {
+			utils.LogWarningf("voteSubHandler: %v", err.Error())
+			continue
+		}
+
+		// TODO: Same logic as Vote
+		// Check membership
+		bigRoot, _ := big.NewInt(0).SetString(ballot.Root, 10)
+		if !v.IsMember(identity.NewIdPathElement(identity.NewTreeContent(bigRoot))) {
+			err = fmt.Errorf("Not a member")
+			utils.LogWarningf("voteSubHandler: %v, %v", err.Error(), bigRoot)
+			continue
+		}
+
+		// Update voteState
+		err = v.VoteWithProof(ballot, v.verificationKey)
+		if err != nil {
+			utils.LogWarningf("voteSubHandler: %v", err.Error())
+			continue
+		}
+
+		// Store ballot
+		v.ballotMap[ballot.Hash().Hex()] = ballot
 	}
 }
 

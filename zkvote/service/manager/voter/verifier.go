@@ -4,38 +4,19 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/arnaucube/go-snark/externalVerif"
 	goSnarkVerifier "github.com/arnaucube/go-snark/externalVerif"
 	"github.com/arnaucube/go-snark/groth16"
 	goSnarkUtils "github.com/arnaucube/go-snark/utils"
 
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
-
-type Ballot struct {
-	Root          string                     `json:"root"`
-	NullifierHash string                     `json:"nullifier_hash"`
-	Proof         *externalVerif.CircomProof `json:"proof"`
-	PublicSignal  []string                   `json:"public_signal"` //root, nullifiers_hash, signal_hash, external_nullifier
-}
-
-// Parse : parse proof from json string to Vote struct
-func Parse(jsonProof string) (*Ballot, error) {
-
-	var vote Ballot
-	err := json.Unmarshal([]byte(jsonProof), &vote)
-	if err != nil {
-		utils.LogErrorf("parse proof: unmarshal error %v", err.Error())
-		return nil, err
-	}
-	return &vote, nil
-}
 
 // VerifyByFile : verify proof
 func VerifyByFile(vkPath string, pfPath string) bool {
 
 	dat, err := ioutil.ReadFile(pfPath)
-	proof, err := Parse(string(dat))
+	ballot, err := ba.NewBallot(string(dat))
 	if err != nil {
 		return false
 	}
@@ -44,7 +25,7 @@ func VerifyByFile(vkPath string, pfPath string) bool {
 	if err != nil {
 		return false
 	}
-	return Verify(string(vkFile), proof.Proof, proof.PublicSignal)
+	return Verify(string(vkFile), ballot.Proof, ballot.PublicSignal)
 }
 
 // Verify : verify proof

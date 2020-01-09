@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
@@ -22,10 +22,10 @@ type nullifier struct {
 }
 
 // Proposal ...
+// TODO: Rename
 type Proposal struct {
 	nullifiers map[int]*nullifier
 	index      int
-	members    *IdentityPool
 }
 
 const HASH_YES = "43379584054787486383572605962602545002668015983485933488536749112829893476306"
@@ -52,7 +52,6 @@ func NewProposal(identity *IdentityPool) (*Proposal, error) {
 	return &Proposal{
 		nullifiers: nullifiers,
 		index:      index,
-		members:    identity,
 	}, nil
 }
 
@@ -80,27 +79,18 @@ func (p *Proposal) Propose(q string) int {
 }
 
 // VoteWithProof : vote with zk proof
-func (p *Proposal) VoteWithProof(idx int, proofs string, vkString string) error {
-	if 0 < idx || 0 == len(proofs) || 0 == len(vkString) {
-		utils.LogWarningf("invalid input:\n %d,\n %s,\n %s", idx, proofs, vkString)
-		return fmt.Errorf("invalid input")
-	}
-
-	snarkVote, err := Parse(proofs)
-	if nil != err {
-		return err
-	}
-	if !p.isValidVote(idx, snarkVote, vkString) {
+func (p *Proposal) VoteWithProof(ballot *ba.Ballot, vkString string) error {
+	if !p.isValidVote(ballot, vkString) {
 		return fmt.Errorf("not a valid vote")
 	}
 
-	bigNullHash, _ := big.NewInt(0).SetString(snarkVote.NullifierHash, 10)
-	p.nullifiers[idx].voteState.records = append(p.nullifiers[idx].voteState.records, bigNullHash)
+	bigNullHash, _ := big.NewInt(0).SetString(ballot.NullifierHash, 10)
+	p.nullifiers[0].voteState.records = append(p.nullifiers[0].voteState.records, bigNullHash)
 
-	if snarkVote.PublicSignal[2] == HASH_YES {
-		p.nullifiers[idx].voteState.opinion = append(p.nullifiers[idx].voteState.opinion, true)
+	if ballot.PublicSignal[2] == HASH_YES {
+		p.nullifiers[0].voteState.opinion = append(p.nullifiers[0].voteState.opinion, true)
 	} else {
-		p.nullifiers[idx].voteState.opinion = append(p.nullifiers[idx].voteState.opinion, false)
+		p.nullifiers[0].voteState.opinion = append(p.nullifiers[0].voteState.opinion, false)
 	}
 
 	return nil
@@ -188,26 +178,22 @@ func (p *Proposal) isFinished(idx int) bool {
 	return p.nullifiers[idx].voteState.finished
 }
 
-func (p *Proposal) isValidVote(idx int, proofs *Ballot, vkString string) bool {
-	if !p.checkIndex(idx) {
-		return false
-	}
-	if p.isFinished(idx) {
-		utils.LogWarningf("question has been closed (idex %d)", idx)
+func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) bool {
+	if 0 == len(vkString) {
+		utils.LogWarningf("invalid input: %s", vkString)
 		return false
 	}
 
-	root := proofs.PublicSignal[0]
-	nullifierHash := proofs.PublicSignal[1]
-	singalHash := proofs.PublicSignal[2]
-	externalNullifier := proofs.PublicSignal[3]
+	nullifierHash := ballot.PublicSignal[1]
+	singalHash := ballot.PublicSignal[2]
+	externalNullifier := ballot.PublicSignal[3]
 
 	bigExternalNull, _ := big.NewInt(0).SetString(externalNullifier, 10)
-	if 0 != p.nullifiers[idx].hash.Cmp(bigExternalNull) {
-		utils.LogWarningf("question doesn't match (%v)/(%v)\n", p.nullifiers[idx].hash, bigExternalNull)
+	if 0 != p.nullifiers[0].hash.Cmp(bigExternalNull) {
+		utils.LogWarningf("question doesn't match (%v)/(%v)\n", p.nullifiers[0].hash, bigExternalNull)
 		return false
 	}
-	if p.isVoted(idx, nullifierHash) {
+	if p.isVoted(nullifierHash) {
 		utils.LogWarningf("Voted already, %v\n", nullifierHash)
 		return false
 	}
@@ -215,18 +201,13 @@ func (p *Proposal) isValidVote(idx int, proofs *Ballot, vkString string) bool {
 		utils.LogWarningf("Not a valid vote hash, %v\n", singalHash)
 		return false
 	}
-	bigRoot, _ := big.NewInt(0).SetString(root, 10)
-	if !p.members.IsMember(NewIdPathElement(NewTreeContent(bigRoot))) {
-		utils.LogWarningf("Not member, %v\n", root)
-		return false
-	}
 
-	return Verify(vkString, proofs.Proof, proofs.PublicSignal)
+	return Verify(vkString, ballot.Proof, ballot.PublicSignal)
 }
 
-func (p *Proposal) isVoted(idx int, nullifierHash string) bool {
+func (p *Proposal) isVoted(nullifierHash string) bool {
 	bigNullHash, _ := big.NewInt(0).SetString(nullifierHash, 10)
-	for _, r := range p.nullifiers[idx].voteState.records {
+	for _, r := range p.nullifiers[0].voteState.records {
 		if 0 == bigNullHash.Cmp(r) {
 			return true
 		}

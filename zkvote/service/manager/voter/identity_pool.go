@@ -2,6 +2,7 @@ package voter
 
 import (
 	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // IdentityPool ...
@@ -40,6 +41,7 @@ func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 	}
 	i.appendRoot(i.tree.GetRoot())
 
+	utils.LogWarningf("Root: %v", i.tree.GetRoot())
 	return idx, nil
 }
 
