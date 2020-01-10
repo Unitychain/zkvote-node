@@ -37,7 +37,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 	if nil != err {
 		return nil, err
 	}
-	p, err := NewProposal(id)
+	p, err := NewProposal()
 	if nil != err {
 		return nil, err
 	}
@@ -85,8 +85,6 @@ func (v *Voter) Register(identity id.Identity) (int, error) {
 	if nil != err {
 		return -1, err
 	}
-
-	// idc := utils.GetBigIntFromHexString(identity.String())
 
 	err = v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
 	if nil != err {
