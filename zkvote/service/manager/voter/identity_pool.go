@@ -41,8 +41,44 @@ func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 	}
 	i.appendRoot(i.tree.GetRoot())
 
-	utils.LogWarningf("Root: %v", i.tree.GetRoot())
+	utils.LogDebugf("Root: %v", i.tree.GetRoot())
 	return idx, nil
+}
+
+// Overwrite .
+// return total len and error
+func (i *IdentityPool) Overwrite(commitmentSet []*IdPathElement) (int, error) {
+
+	// backup tree and history
+	bckTree := i.tree
+	bckRootHistory := i.rootHistory
+
+	// Iniitalize a new merkle tree
+	tree, err := NewMerkleTree(TREE_LEVEL)
+	if err != nil {
+		return i.tree.Len(), err
+	}
+	rootHistory := []*TreeContent{tree.GetRoot()}
+	i.tree = tree
+	i.rootHistory = rootHistory
+
+	// insert values to the new merkle tree
+	var idx int = 0
+	for _, e := range commitmentSet {
+		idx, err = i.InsertIdc(e)
+		if err != nil {
+			break
+		}
+	}
+
+	// error handling, recovery
+	if err != nil {
+		i.tree = bckTree
+		i.rootHistory = bckRootHistory
+		return i.tree.Len(), err
+	}
+
+	return idx + 1, nil
 }
 
 // Update : update id

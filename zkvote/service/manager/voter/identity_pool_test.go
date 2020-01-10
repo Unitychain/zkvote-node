@@ -118,3 +118,67 @@ func TestIsMember2(t *testing.T) {
 	assert.True(t, id.IsMember(NewIdPathElement(root1)))
 	assert.True(t, id.IsMember(NewIdPathElement(id.tree.GetRoot())))
 }
+
+func TestOverwrite(t *testing.T) {
+	id, err := NewIdentityPoolWithTreeLevel(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	for i := 0; i < 3; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
+		assert.Nil(t, err, "register error")
+		assert.Equal(t, i, idx)
+	}
+
+	commitmentSet := make([]*IdPathElement, 10)
+	for i := 0; i < 10; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		commitmentSet[i] = NewIdPathElement(NewTreeContent(idc))
+	}
+
+	num, err := id.Overwrite(commitmentSet)
+	assert.Nil(t, err, "overwrite error")
+	assert.Equal(t, 10, num)
+}
+func TestOverwrite2(t *testing.T) {
+	id, err := NewIdentityPoolWithTreeLevel(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	for i := 0; i < 10; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
+		assert.Nil(t, err, "register error")
+		assert.Equal(t, i, idx)
+	}
+
+	commitmentSet := make([]*IdPathElement, 3)
+	for i := 0; i < 3; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		commitmentSet[i] = NewIdPathElement(NewTreeContent(idc))
+	}
+
+	num, err := id.Overwrite(commitmentSet)
+	assert.Nil(t, err, "overwrite error")
+	assert.Equal(t, 3, num)
+}
+
+func TestOverwrite_ForceError(t *testing.T) {
+	id, err := NewIdentityPoolWithTreeLevel(10)
+	assert.Nil(t, err, "new identity instance error")
+
+	for i := 0; i < 3; i++ {
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
+		assert.Nil(t, err, "register error")
+		assert.Equal(t, i, idx)
+	}
+
+	commitmentSet := make([]*IdPathElement, 10)
+	for i := 0; i < 10; i++ {
+		commitmentSet[i] = NewIdPathElement(NewTreeContent(big.NewInt(0)))
+	}
+
+	num, err := id.Overwrite(commitmentSet)
+	assert.NotNil(t, err, "overwrite should have errors")
+	assert.Equal(t, 3, num)
+}
