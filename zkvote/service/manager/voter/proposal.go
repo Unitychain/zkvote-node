@@ -32,11 +32,7 @@ const HASH_YES = "43379584054787486383572605962602545002668015983485933488536749
 const HASH_NO = "85131057757245807317576516368191972321038229705283732634690444270750521936266"
 
 // NewProposal ...
-func NewProposal(identity *IdentityPool) (*Proposal, error) {
-	if nil == identity {
-		return nil, fmt.Errorf("Invalid input, need IdentityPool object")
-	}
-
+func NewProposal() (*Proposal, error) {
 	nullifiers := map[int]*nullifier{
 		0: &nullifier{
 			hash:    big.NewInt(0).SetBytes(crypto.Keccak256([]byte("empty"))),
@@ -174,13 +170,17 @@ func (p *Proposal) getProposal(idx int) *nullifier {
 //
 // Internal functions
 //
-func (p *Proposal) isFinished(idx int) bool {
-	return p.nullifiers[idx].voteState.finished
+func (p *Proposal) isFinished() bool {
+	return p.nullifiers[0].voteState.finished
 }
 
 func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) bool {
 	if 0 == len(vkString) {
 		utils.LogWarningf("invalid input: %s", vkString)
+		return false
+	}
+	if p.isFinished() {
+		utils.LogWarningf("this question has been closed")
 		return false
 	}
 
