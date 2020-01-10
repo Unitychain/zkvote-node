@@ -130,8 +130,15 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
-	for _, id := range data.IdentitySet {
-		sp.manager.Insert(subjectHash.Hex().String(), id)
+
+	// CAUTION!
+	// Manager needs to overwrite the whole identity pool
+	// to keep the order of the tree the same
+
+	err = sp.manager.Overwrite(subjectHash.Hex().String(), data.IdentitySet)
+	if err != nil {
+		utils.LogErrorf("Failed to overwrite identitySet, %v", err.Error())
+		return
 	}
 
 	// locate request data and remove it if found

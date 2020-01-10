@@ -105,11 +105,6 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 	return tree, nil
 }
 
-func (m *MerkleTree) addContent(idx uint, value *TreeContent) {
-	m.content[idx] = value
-	m.mapContent[value] = idx
-}
-
 // Insert : insert into to the merkle tree
 func (m *MerkleTree) Insert(value *TreeContent) (int, error) {
 	if value == nil {
@@ -276,9 +271,19 @@ func (m *MerkleTree) GetIndexByValue(value *TreeContent) int {
 	return -1
 }
 
+// Len .
+func (m *MerkleTree) Len() int {
+	return int(m.nextIndex)
+}
+
 //
 // Internal functions
 //
+
+func (m *MerkleTree) addContent(idx uint, value *TreeContent) {
+	m.content[idx] = value
+	m.mapContent[value] = idx
+}
 
 func (m *MerkleTree) calculateRoot() (*TreeContent, error) {
 

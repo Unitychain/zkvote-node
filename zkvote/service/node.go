@@ -181,6 +181,9 @@ func (node *Node) Info() error {
 	fmt.Println("Voter Identity Merkle Tree Contents:")
 	fmt.Println(node.GetVoterIdentities())
 
+	fmt.Println("Ballot Map:")
+	fmt.Println(node.GetBallotMaps())
+
 	return nil
 }
 
@@ -317,8 +320,7 @@ func (node *Node) Run() {
 	}{
 		{"My info", node.handleMyInfo},
 		{"Manager: Propose a subject", node.handlePropose},
-		// {"Manager: Register for a subject", node.handleRegister},
-		// {"Manager: Advertise topic", node.handleAnnounce},
+		{"Manager: Join a subject", node.handleJoin},
 		{"Manager: Find topic providers", node.handleFindProposers},
 		{"Manager: Collect all topics", node.handleCollect},
 		{"Manager: Sync identity index", node.handleSyncIdentityIndex},
@@ -397,24 +399,25 @@ func (node *Node) handlePropose() error {
 	return node.Propose(title, description, "")
 }
 
-// func (node *Node) handleRegister() error {
-// 	scanner := bufio.NewScanner(os.Stdin)
-// 	fmt.Print("Subject hash hex: ")
-// 	scanner.Scan()
-// 	subjectHashHex := scanner.Text()
-// 	fmt.Println("Subject hash hex: ", subjectHashHex)
+func (node *Node) handleJoin() error {
+	p := promptui.Prompt{
+		Label: "Subject hash hex",
+	}
+	subjectHashHex, err := p.Run()
+	if err != nil {
+		return err
+	}
 
-// 	fmt.Print("Identity commitment hex: ")
-// 	scanner.Scan()
-// 	identityCommitmentHex := scanner.Text()
-// 	fmt.Println("Input value: ", identityCommitmentHex)
+	p = promptui.Prompt{
+		Label: "Identity commitment hex",
+	}
+	identityCommitmentHex, err := p.Run()
+	if err != nil {
+		return err
+	}
 
-// 	return node.Register(subjectHashHex, identityCommitmentHex)
-// }
-
-// func (node *Node) handleBroadcast() error {
-// 	return node.Broadcast()
-// }
+	return node.Join(subjectHashHex, identityCommitmentHex)
+}
 
 func (node *Node) handleSyncIdentityIndex() error {
 	return node.SyncIdentityIndex()
@@ -422,10 +425,6 @@ func (node *Node) handleSyncIdentityIndex() error {
 
 // func (node *Node) handlePrintInboundMessages() error {
 // 	return node.PrintInboundMessages()
-// }
-
-// func (node *Node) handleAnnounce() error {
-// 	return node.Announce()
 // }
 
 func (node *Node) handleFindProposers() error {

@@ -10,6 +10,7 @@ import (
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
@@ -99,6 +100,25 @@ func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) er
 	return nil
 }
 
+// Overwrite ...
+func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
+	voter := m.voters[subject.HashHex(subjectHashHex)]
+
+	// Convert to idPathElement
+	set := make([]*id.IdPathElement, 0)
+	for _, idStr := range identitySet {
+		set = append(set, id.NewIdentity(idStr).PathElement())
+	}
+
+	_, err := voter.Overwrite(set)
+	if nil != err {
+		utils.LogWarningf("identity pool registration error, %v", err.Error())
+		return err
+	}
+
+	return nil
+}
+
 //
 // pubsub function
 //
@@ -115,15 +135,16 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 // Vote ...
 func (m *Manager) Vote(subjectHashHex string, proof string) error {
 	voter := m.voters[subject.HashHex(subjectHashHex)]
-	err := voter.Vote(proof)
-
-	return err
+	ballot, err := ba.NewBallot(proof)
+	if err != nil {
+		return err
+	}
+	return voter.Vote(ballot)
 }
 
 // Open ...
 func (m *Manager) Open(subjectHashHex string) (int, int) {
 	voter := m.voters[subject.HashHex(subjectHashHex)]
-
 	return voter.Open()
 }
 
@@ -294,6 +315,16 @@ func (m *Manager) GetVoterIdentities() map[subject.HashHex][]*id.IdPathElement {
 
 	for k, v := range m.voters {
 		result[k] = v.GetAllIds()
+	}
+	return result
+}
+
+// GetBallotMaps ...
+func (m *Manager) GetBallotMaps() map[subject.HashHex]ba.Map {
+	result := make(map[subject.HashHex]ba.Map)
+
+	for k, v := range m.voters {
+		result[k] = v.GetBallotMap()
 	}
 	return result
 }
