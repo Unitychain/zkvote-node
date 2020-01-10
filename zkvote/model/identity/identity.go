@@ -19,6 +19,13 @@ func NewIdentity(commitment string) *Identity {
 	return &id
 }
 
+// NewIdentityFromBytes ...
+func NewIdentityFromBytes(bytes []byte) *Identity {
+	hex := utils.GetHexStringFromBytes(bytes)
+	id := Identity(hex)
+	return &id
+}
+
 // Hash ...
 type Hash []byte
 
@@ -28,8 +35,16 @@ func (id Identity) Byte() []byte { return utils.GetBytesFromHexString(string(id)
 // String ...
 func (id Identity) String() string { return string(id) }
 
+// Hex ...
 func (id Identity) Hex() string {
 	return utils.GetHexStringFromBigInt(big.NewInt(0).SetBytes(id.Byte()))
+}
+
+// PathElement ...
+func (id Identity) PathElement() *IdPathElement {
+	// TODO: do check
+	bigValue := big.NewInt(0).SetBytes(id.Byte())
+	return NewIdPathElement(NewTreeContent(bigValue))
 }
 
 // Set ...

@@ -43,3 +43,7 @@ func GetBytesFromHexString(hex string) []byte {
 	b, _ := h.DecodeString(Remove0x(hex))
 	return b
 }
+
+func GetHexStringFromBytes(b []byte) string {
+	return GetHexStringFromBigInt(big.NewInt(0).SetBytes(b))
+}
