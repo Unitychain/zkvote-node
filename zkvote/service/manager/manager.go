@@ -124,10 +124,16 @@ func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
 //
 // Join an existing subject
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
-	subs := m.GetCollectedSubjects()
-	if sub, ok := subs[subject.HashHex(subjectHashHex)]; ok {
-		m.newAVoter(sub, identityCommitmentHex)
-		return nil
+	// Check if subjectHash is created by itself
+	createdSubs := m.GetCreatedSubjects()
+	if _, ok := createdSubs[subject.HashHex(subjectHashHex)]; ok {
+		return m.Insert(subjectHashHex, identityCommitmentHex)
+	}
+
+	collectedSubs := m.GetCollectedSubjects()
+	if sub, ok := collectedSubs[subject.HashHex(subjectHashHex)]; ok {
+		_, err := m.newAVoter(sub, identityCommitmentHex)
+		return err
 	}
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
 }
@@ -249,6 +255,11 @@ func (m *Manager) GetJoinedSubjectTitles() []string {
 	fmt.Println(topics)
 
 	return topics
+}
+
+// GetCreatedSubjects ...
+func (m *Manager) GetCreatedSubjects() subject.Map {
+	return m.Cache.GetCreatedSubjects()
 }
 
 // GetCollectedSubjects ...

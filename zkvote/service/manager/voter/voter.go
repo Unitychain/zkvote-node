@@ -161,7 +161,7 @@ func (v *Voter) GetAllIdentities() []id.Identity {
 // GetIdentityPath .
 func (v *Voter) GetIdentityPath(identity id.Identity) ([]*id.IdPathElement, []int, *id.IdPathElement, error) {
 	elements, paths, root := v.GetIdentityTreePath(identity.PathElement())
-	if nil == elements {
+	if nil == paths {
 		return nil, nil, nil, fmt.Errorf("Can't find the element")
 	}
 	return elements, paths, root, nil
