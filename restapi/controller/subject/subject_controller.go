@@ -214,20 +214,24 @@ func (c *Controller) getIdentityPath(rw http.ResponseWriter, req *http.Request) 
 	var request subjectModel.GetIdentityPathRequest
 
 	err := getQueryParams(&request, req.URL.Query())
+	if err != nil {
+		c.writeGenericError(rw, err, http.StatusInternalServerError)
+		return
+	}
 
 	response := subjectModel.GetIdentityPathResponse{}
 	if request.GetIdentityPathParams != nil {
 		subjectHash := request.GetIdentityPathParams.SubjectHash
 		identityCommitment := request.GetIdentityPathParams.IdentityCommitment
-		path, index, root := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
+		path, index, root, err := c.Manager.GetIdentityPath(subjectHash, identityCommitment)
+		if err != nil {
+			c.writeGenericError(rw, err, http.StatusInternalServerError)
+			return
+		}
+
 		response.Results.Path = path
 		response.Results.Index = index
 		response.Results.Root = root
-	}
-
-	if err != nil {
-		c.writeGenericError(rw, err, http.StatusInternalServerError)
-		return
 	}
 
 	c.writeResponse(rw, response)
