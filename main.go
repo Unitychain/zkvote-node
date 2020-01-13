@@ -43,7 +43,7 @@ func main() {
 	rand.Seed(timeSeed)
 	p2pPort := rand.Intn(100) + 10000
 	// serverPort := strconv.Itoa(rand.Intn(100) + 3000)
-	serverAddr := "127.0.0.1:" + strconv.Itoa(*serverPort)
+	serverAddr := ":" + strconv.Itoa(*serverPort)
 
 	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize, p2pPort)
 	if err != nil {
