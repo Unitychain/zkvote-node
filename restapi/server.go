@@ -31,7 +31,7 @@ func NewServer(node *zkvote.Node, serverAddr string) (*Server, error) {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	handler := cors.Default().Handler(router)
+	handler := cors.AllowAll().Handler(router)
 
 	server := &Server{
 		RESTAPI: restService,
