@@ -142,7 +142,6 @@ func (m *MerkleTree) Update(index uint, oldValue, newValue *TreeContent) error {
 		return fmt.Errorf("value of the index is not matched old value")
 	}
 
-	// m.content[index] = TreeContent{newValue}
 	m.addContent(index, newValue)
 	root, err := m.calculateRoot()
 	if err != nil {
@@ -208,6 +207,7 @@ func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, 
 			if 0 == i {
 				h, _ := m.content[j].CalculateHash()
 				valuesOfLevel[j] = &TreeContent{big.NewInt(0).SetBytes(h)}
+
 			} else {
 				h, err := m.hashStrategy.Hash([]*big.Int{tree[i-1][2*j].x, tree[i-1][2*j+1].x, big.NewInt(0)})
 				if err != nil {
@@ -223,14 +223,10 @@ func (m *MerkleTree) GetIntermediateValues(value *TreeContent) ([]*TreeContent, 
 		} else {
 			imv[i] = valuesOfLevel[currentIdx-1]
 		}
-		// for j, v := range valuesOfLevel {
-		// 	utils.LogDebugf("%d - %v\n", j, v)
-		// }
-		// utils.LogDebugf("%d\n", imi[i])
+
 		tree[i] = valuesOfLevel
 		currentIdx = int(currentIdx / 2)
 	}
-	utils.LogDebugf("%v\n", imi)
 	root, err := m.hashStrategy.Hash([]*big.Int{tree[m.levels-1][0].x, tree[m.levels-1][1].x, big.NewInt(0)})
 	if err != nil {
 		utils.LogFatalf("ERROR: calculate root through mimc7 error, %v", err.Error())
@@ -259,9 +255,6 @@ func (m *MerkleTree) IsExisted(value *TreeContent) bool {
 
 // GetIndexByValue .
 func (m *MerkleTree) GetIndexByValue(value *TreeContent) int {
-	// if i, ok := m.mapContent[value]; ok {
-	// 	return int(i)
-	// }
 	for i, c := range m.content {
 		if eq, _ := c.Equals(*value); eq {
 			utils.LogDebugf("Got index, %d", i)

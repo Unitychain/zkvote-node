@@ -36,14 +36,14 @@ func TestInsert_10IDs(t *testing.T) {
 	assert.Nil(t, err, "new merkle tree instance error")
 
 	for i := 0; i < 10; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := tree.Insert(&TreeContent{idc})
 		tree.GetIntermediateValues(&TreeContent{idc})
 
 		assert.Nil(t, err, "insert error")
 		assert.Equal(t, i, idx)
 	}
-	assert.Equal(t, "1445582704315932794177642993412188437980560505275108425483448780308059834769", tree.GetRoot().String())
+	assert.Equal(t, "14980283469360920217403527533153996284933222989994708885209730188977033874534", tree.GetRoot().String())
 	// root := tree.GetRoot().String()
 	// fmt.Println("root, ", root)
 }
@@ -133,7 +133,7 @@ func TestGetIndexByValue(t *testing.T) {
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 10; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := tree.Insert(&TreeContent{idc})
 		assert.Nil(t, err, "insert error")
 

@@ -30,7 +30,7 @@ func TestRegister_10IDs(t *testing.T) {
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 10; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
 		assert.Nil(t, err, "register error")
 		assert.Equal(t, i, idx)
@@ -124,7 +124,7 @@ func TestOverwrite(t *testing.T) {
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 3; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
 		assert.Nil(t, err, "register error")
 		assert.Equal(t, i, idx)
@@ -132,7 +132,7 @@ func TestOverwrite(t *testing.T) {
 
 	commitmentSet := make([]*IdPathElement, 10)
 	for i := 0; i < 10; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		commitmentSet[i] = NewIdPathElement(NewTreeContent(idc))
 	}
 
@@ -145,7 +145,7 @@ func TestOverwrite2(t *testing.T) {
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 10; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
 		assert.Nil(t, err, "register error")
 		assert.Equal(t, i, idx)
@@ -153,7 +153,7 @@ func TestOverwrite2(t *testing.T) {
 
 	commitmentSet := make([]*IdPathElement, 3)
 	for i := 0; i < 3; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		commitmentSet[i] = NewIdPathElement(NewTreeContent(idc))
 	}
 
@@ -167,7 +167,7 @@ func TestOverwrite_ForceError(t *testing.T) {
 	assert.Nil(t, err, "new identity instance error")
 
 	for i := 0; i < 3; i++ {
-		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", i+1), 10)
+		idc, _ := big.NewInt(0).SetString(fmt.Sprintf("%d", 100*i+1), 10)
 		idx, err := id.InsertIdc(NewIdPathElement(NewTreeContent(idc)))
 		assert.Nil(t, err, "register error")
 		assert.Equal(t, i, idx)

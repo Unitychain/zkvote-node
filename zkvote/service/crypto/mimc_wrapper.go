@@ -86,5 +86,8 @@ func (m *mimc7Wrapper) hash(arr []*big.Int, key *big.Int) (*big.Int, error) {
 		// TODO: Div(8) is a workaround, mimc7 in golang will check finite field, Q.
 		arr[i] = new(big.Int).Div(a, big.NewInt(Denominator))
 	}
+	if nil == key {
+		key = big.NewInt(0)
+	}
 	return mimc7.Hash(arr, key)
 }
