@@ -64,11 +64,16 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 			voteSub: voteSub,
 		},
 	}
+	v.Propose()
 
 	go v.identitySubHandler(v.subject.Hash(), v.subscription.idSub)
 	go v.voteSubHandler(v.subscription.voteSub)
 	return v, nil
 }
+
+//
+// Identities
+//
 
 // Insert .
 func (v *Voter) Insert(identity id.Identity) (int, error) {
@@ -102,31 +107,9 @@ func (v *Voter) Overwrite(identities []*id.Identity) (int, error) {
 	return v.OverwriteIds(idElements)
 }
 
-// GetIdentityIndex .
-func (v *Voter) GetIdentityIndex(identity id.Identity) int {
-	return v.GetIndex(identity.PathElement())
-}
-
-// GetSubject .
-func (v *Voter) GetSubject() *subject.Subject {
-	return v.subject
-}
-
-// GetIdentitySub ...
-func (v *Voter) GetIdentitySub() *pubsub.Subscription {
-	return v.subscription.idSub
-}
-
-// GetVoteSub ...
-func (v *Voter) GetVoteSub() *pubsub.Subscription {
-	return v.subscription.voteSub
-}
-
-// GetBallotMap ...
-func (v *Voter) GetBallotMap() ba.Map {
-	return v.ballotMap
-}
-
+//
+// Proposal
+//
 // Vote .
 func (v *Voter) Vote(ballot *ba.Ballot) error {
 	bytes, err := ballot.Byte()
@@ -157,6 +140,40 @@ func (v *Voter) Open() (yes, no int) {
 	return v.GetVotes(0)
 }
 
+// Propose .
+func (v *Voter) Propose() int {
+	return v.ProposeQuestion(v.subject.Hash().Hex().String())
+}
+
+//
+// Getters
+//
+
+// GetIdentityIndex .
+func (v *Voter) GetIdentityIndex(identity id.Identity) int {
+	return v.GetIndex(identity.PathElement())
+}
+
+// GetSubject .
+func (v *Voter) GetSubject() *subject.Subject {
+	return v.subject
+}
+
+// GetIdentitySub ...
+func (v *Voter) GetIdentitySub() *pubsub.Subscription {
+	return v.subscription.idSub
+}
+
+// GetVoteSub ...
+func (v *Voter) GetVoteSub() *pubsub.Subscription {
+	return v.subscription.voteSub
+}
+
+// GetBallotMap ...
+func (v *Voter) GetBallotMap() ba.Map {
+	return v.ballotMap
+}
+
 // GetAllIdentities .
 func (v *Voter) GetAllIdentities() []id.Identity {
 	ids := v.GetAllIds()
@@ -175,6 +192,10 @@ func (v *Voter) GetIdentityPath(identity id.Identity) ([]*id.IdPathElement, []in
 	}
 	return elements, paths, root, nil
 }
+
+//
+// internals
+//
 
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {

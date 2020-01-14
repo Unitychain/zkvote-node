@@ -52,7 +52,7 @@ func NewProposal() (*Proposal, error) {
 }
 
 // Propose : propose the hash of a question
-func (p *Proposal) Propose(q string) int {
+func (p *Proposal) ProposeQuestion(q string) int {
 	if 0 == len(q) {
 		utils.LogWarning("input qeustion in empty")
 		return -1

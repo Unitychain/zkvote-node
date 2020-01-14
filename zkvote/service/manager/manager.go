@@ -357,9 +357,6 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 		return nil, err
 	}
 
-	pid := voter.Propose(sub.Hash().Hex().String())
-	_ = pid
-
 	m.voters[sub.Hash().Hex()] = voter
 	return m.voters[sub.Hash().Hex()], nil
 }
