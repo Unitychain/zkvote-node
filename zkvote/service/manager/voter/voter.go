@@ -93,6 +93,15 @@ func (v *Voter) Register(identity id.Identity) (int, error) {
 	return i, nil
 }
 
+// Overwrite .
+func (v *Voter) Overwrite(identities []*id.Identity) (int, error) {
+	idElements := make([]*id.IdPathElement, len(identities))
+	for i, e := range identities {
+		idElements[i] = e.PathElement()
+	}
+	return v.OverwriteIds(idElements)
+}
+
 // GetIdentityIndex .
 func (v *Voter) GetIdentityIndex(identity id.Identity) int {
 	return v.GetIndex(identity.PathElement())

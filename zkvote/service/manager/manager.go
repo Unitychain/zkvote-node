@@ -104,10 +104,10 @@ func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) er
 func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
 	voter := m.voters[subject.HashHex(subjectHashHex)]
 
-	// Convert to idPathElement
-	set := make([]*id.IdPathElement, 0)
+	// Convert to Identity
+	set := make([]*id.Identity, 0)
 	for _, idStr := range identitySet {
-		set = append(set, id.NewIdentity(idStr).PathElement())
+		set = append(set, id.NewIdentity(idStr))
 	}
 
 	_, err := voter.Overwrite(set)

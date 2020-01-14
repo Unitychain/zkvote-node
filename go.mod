@@ -15,6 +15,7 @@ require (
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-leveldb v0.1.0
 	github.com/ipfs/go-ipns v0.0.1
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/libp2p/go-libp2p v0.4.1
 	github.com/libp2p/go-libp2p-circuit v0.1.4
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
@@ -28,8 +29,10 @@ require (
 	github.com/multiformats/go-multiaddr v0.1.1
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/rs/cors v1.7.0
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20191105091915-95d230a53780 // indirect
 )
