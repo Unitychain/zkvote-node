@@ -1,9 +1,13 @@
 package voter
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"time"
 
+	discovery "github.com/libp2p/go-libp2p-discovery"
+	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
@@ -26,13 +30,21 @@ type Voter struct {
 	verificationKey string
 
 	*localContext.Context
+	discovery    discovery.Discovery
 	ps           *pubsub.PubSub
 	subscription *voterSubscription
 	pubMsg       map[string][]*pubsub.Message
 }
 
 // NewVoter ...
-func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Context, verificationKey string) (*Voter, error) {
+func NewVoter(
+	subject *subject.Subject,
+	ps *pubsub.PubSub,
+	lc *localContext.Context,
+	discovery discovery.Discovery,
+	verificationKey string,
+	announce bool,
+) (*Voter, error) {
 	id, err := NewIdentityPool()
 	if nil != err {
 		return nil, err
@@ -59,6 +71,7 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 		Context:         lc,
 		ballotMap:       ba.NewMap(),
 		verificationKey: verificationKey,
+		discovery:       discovery,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
 			voteSub: voteSub,
@@ -68,7 +81,21 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 
 	go v.identitySubHandler(v.subject.Hash(), v.subscription.idSub)
 	go v.voteSubHandler(v.subscription.voteSub)
+
+	if announce {
+		v.announce()
+	}
 	return v, nil
+}
+
+func (v *Voter) announce() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// TODO: Check if the voter is ready for announcement
+	utils.LogInfo("Announce")
+	_, err := v.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+	return err
 }
 
 //

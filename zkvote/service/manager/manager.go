@@ -72,7 +72,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 		return fmt.Errorf("subject already existed")
 	}
 
-	_, err := m.newAVoter(subject, identityCommitmentHex)
+	_, err := m.newAVoter(subject, identityCommitmentHex, true)
 	if nil != err {
 		return err
 	}
@@ -80,7 +80,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	// Store the created subject
 	m.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
 
-	m.announce()
+	// m.announce()
 
 	return nil
 }
@@ -132,7 +132,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subject.HashHex(subjectHashHex)]; ok {
-		_, err := m.newAVoter(sub, identityCommitmentHex)
+		_, err := m.newAVoter(sub, identityCommitmentHex, false)
 		return err
 	}
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
@@ -346,9 +346,9 @@ func (m *Manager) GetBallotMaps() map[subject.HashHex]ba.Map {
 //
 // internal functions
 //
-func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
+func (m *Manager) newAVoter(sub *subject.Subject, idc string, announce bool) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
-	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
+	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.discovery, m.zkVerificationKey, announce)
 	if nil != err {
 		return nil, err
 	}
@@ -361,13 +361,13 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	return m.voters[sub.Hash().Hex()], nil
 }
 
-// Announce that the node has a proposal to be discovered
-func (m *Manager) announce() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+// // Announce that the node has a proposal to be discovered
+// func (m *Manager) announce() error {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+// 	defer cancel()
 
-	// TODO: Check if the voter is ready for announcement
-	fmt.Println("Announce")
-	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
-	return err
-}
+// 	// TODO: Check if the voter is ready for announcement
+// 	fmt.Println("Announce")
+// 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+// 	return err
+// }
