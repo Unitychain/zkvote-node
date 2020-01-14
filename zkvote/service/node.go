@@ -43,7 +43,7 @@ type Node struct {
 }
 
 // NewNode create a new node with its implemented protocols
-func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int, port int) (*Node, error) {
+func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int) (*Node, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	// Ignoring most errors for brevity
@@ -51,9 +51,9 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 
 	// priv, _, _ := crypto.GenerateKeyPair(crypto.Secp256k1, 256)
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
-	listen, _ := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port))
+	// listen, _ := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port))
 
-	opts := []libp2p.Option{libp2p.ConnectionManager(cmgr), libp2p.Identity(priv), libp2p.ListenAddrs(listen)}
+	opts := []libp2p.Option{libp2p.ConnectionManager(cmgr), libp2p.Identity(priv)}
 	if relay {
 		opts = append(opts, libp2p.EnableRelay(circuit.OptHop))
 	}
