@@ -41,11 +41,11 @@ func main() {
 
 	timeSeed := time.Now().UnixNano() / int64(time.Millisecond)
 	rand.Seed(timeSeed)
-	p2pPort := rand.Intn(100) + 10000
+	// p2pPort := rand.Intn(100) + 10000
 	// serverPort := strconv.Itoa(rand.Intn(100) + 3000)
 	serverAddr := ":" + strconv.Itoa(*serverPort)
 
-	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize, p2pPort)
+	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize)
 	if err != nil {
 		panic(err)
 	}
