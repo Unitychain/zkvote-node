@@ -17,6 +17,7 @@ import (
 func main() {
 	path := flag.String("db", "node_data", "Database folder")
 	serverPort := flag.Int("p", 9900, "Web UI port")
+	cmds := flag.Bool("cmds", false, "Interactive commands")
 	flag.Parse()
 
 	utils.OpenLog()
@@ -57,5 +58,10 @@ func main() {
 
 	go server.ListenAndServe()
 	fmt.Printf("HTTP server listens to port %d\n", *serverPort)
-	node.Run()
+
+	if *cmds {
+		node.Run()
+	} else {
+		select {}
+	}
 }

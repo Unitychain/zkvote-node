@@ -312,7 +312,7 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 // 	return res
 // }
 
-// Run ...
+// Run interactive commands
 func (node *Node) Run() {
 	commands := []struct {
 		name string
