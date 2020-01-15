@@ -6,8 +6,8 @@ import (
 
 	"os"
 	"runtime"
-	"strings"
 	"strconv"
+	"strings"
 
 	logging "github.com/op/go-logging"
 )
@@ -88,12 +88,12 @@ func getFileNLine() string {
 
 // LogDebugf ...
 func LogDebugf(s string, args ...interface{}) {
-	logger.Debugf("%s", fmt.Sprintf(s, args...))
+	logger.Debugf("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogDebug ...
 func LogDebug(s string) {
-	logger.Debug(s)
+	logger.Debug("[%d] %s (%s)", Goid(), s, getFileNLine())
 }
 
 // LogInfof ...
@@ -103,7 +103,6 @@ func LogInfof(s string, args ...interface{}) {
 
 // LogInfo ...
 func LogInfo(s string) {
-
 	logger.Infof("[%d] %s (%s)", Goid(), s, getFileNLine())
 }
 

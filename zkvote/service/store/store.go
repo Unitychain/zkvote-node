@@ -51,32 +51,6 @@ func (store *Store) PutDHT() error {
 	return nil
 }
 
-// PutLocal ...
-func (store *Store) PutLocal() error {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Key: ")
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	fmt.Print("Value: ")
-	scanner.Scan()
-	v := scanner.Text()
-	vb := []byte(v)
-	fmt.Println("Input value: ", v)
-
-	err := store.db.Put(mkDsKey(k), vb)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return nil
-}
-
-func mkDsKey(s string) datastore.Key {
-	return datastore.NewKey(base32.RawStdEncoding.EncodeToString([]byte(s)))
-}
-
 // GetDHT ...
 func (store *Store) GetDHT() error {
 	ctx := context.Background()
@@ -96,19 +70,29 @@ func (store *Store) GetDHT() error {
 	return nil
 }
 
-// GetLocal ...
-func (store *Store) GetLocal() error {
-	fmt.Print("Key: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	k := scanner.Text()
-	fmt.Println("Input key: ", k)
-
-	vb, err := store.db.Get(mkDsKey(k))
+// PutLocal ...
+func (store *Store) PutLocal(k, v string) error {
+	err := store.db.Put(mkDsKey(k), []byte(v))
 	if err != nil {
-		fmt.Println(err)
+		// utils.LogErrorf("Put local db error, %v", err)
+		return err
 	}
-	fmt.Println("Value: ", string(vb))
 
 	return nil
+}
+
+// GetLocal ...
+func (store *Store) GetLocal(k string) (string, error) {
+	vb, err := store.db.Get(mkDsKey(k))
+	if err != nil {
+		// utils.LogErrorf("Get local db error, %v", err)
+		return "", err
+	}
+	// utils.LogDebugf("Value: %s", string(vb))
+
+	return string(vb), nil
+}
+
+func mkDsKey(s string) datastore.Key {
+	return datastore.NewKey(base32.RawStdEncoding.EncodeToString([]byte(s)))
 }

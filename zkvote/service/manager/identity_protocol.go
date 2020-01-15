@@ -105,6 +105,7 @@ func (sp *IdentityProtocol) onIdentityRequest(s network.Stream) {
 
 // remote ping response handler
 func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
+	utils.LogDebug("onIdentityResponse")
 	data := &pb.IdentityResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {

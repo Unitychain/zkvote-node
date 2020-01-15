@@ -76,8 +76,8 @@ func (p *Proposal) ProposeQuestion(q string) int {
 
 // VoteWithProof : vote with zk proof
 func (p *Proposal) VoteWithProof(ballot *ba.Ballot, vkString string) error {
-	if !p.isValidVote(ballot, vkString) {
-		return fmt.Errorf("not a valid vote")
+	if b, e := p.isValidVote(ballot, vkString); !b {
+		return e
 	}
 
 	bigNullHash, _ := big.NewInt(0).SetString(ballot.NullifierHash, 10)
@@ -174,14 +174,14 @@ func (p *Proposal) isFinished() bool {
 	return p.nullifiers[0].voteState.finished
 }
 
-func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) bool {
+func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) (bool, error) {
 	if 0 == len(vkString) {
 		utils.LogWarningf("invalid input: %s", vkString)
-		return false
+		return false, fmt.Errorf("vk string is empty")
 	}
 	if p.isFinished() {
 		utils.LogWarningf("this question has been closed")
-		return false
+		return false, fmt.Errorf("this question has been closed")
 	}
 
 	nullifierHash := ballot.PublicSignal[1]
@@ -191,18 +191,18 @@ func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) bool {
 	bigExternalNull, _ := big.NewInt(0).SetString(externalNullifier, 10)
 	if 0 != p.nullifiers[0].hash.Cmp(bigExternalNull) {
 		utils.LogWarningf("question doesn't match (%v)/(%v)\n", p.nullifiers[0].hash, bigExternalNull)
-		return false
+		return false, fmt.Errorf(fmt.Sprintf("question doesn't match (%v)/(%v)\n", p.nullifiers[0].hash, bigExternalNull))
 	}
 	if p.isVoted(nullifierHash) {
 		utils.LogWarningf("Voted already, %v\n", nullifierHash)
-		return false
+		return false, fmt.Errorf("voted already")
 	}
 	if !isValidOpinion(singalHash) {
 		utils.LogWarningf("Not a valid vote hash, %v\n", singalHash)
-		return false
+		return false, fmt.Errorf(fmt.Sprintf("Not a valid vote hash, %v\n", singalHash))
 	}
 
-	return Verify(vkString, ballot.Proof, ballot.PublicSignal)
+	return Verify(vkString, ballot.Proof, ballot.PublicSignal), nil
 }
 
 func (p *Proposal) isVoted(nullifierHash string) bool {

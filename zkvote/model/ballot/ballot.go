@@ -56,6 +56,12 @@ func (b *Ballot) Hash() *Hash {
 	return &result
 }
 
+// JSON .
+func (b *Ballot) JSON() (string, error) {
+	d, e := b.Byte()
+	return string(d), e
+}
+
 // Hex ...
 func (h Hash) Hex() HashHex {
 	return HashHex(hex.EncodeToString(h.Byte()))
