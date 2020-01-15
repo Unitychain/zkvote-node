@@ -1,9 +1,13 @@
 package voter
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"time"
 
+	discovery "github.com/libp2p/go-libp2p-discovery"
+	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
@@ -22,17 +26,25 @@ type Voter struct {
 	subject *subject.Subject
 	*IdentityPool
 	*Proposal
-	ballotMap       ba.Map
+	ballotMap       []*ba.Ballot
 	verificationKey string
 
 	*localContext.Context
+	discovery    discovery.Discovery
 	ps           *pubsub.PubSub
 	subscription *voterSubscription
 	pubMsg       map[string][]*pubsub.Message
 }
 
 // NewVoter ...
-func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Context, verificationKey string) (*Voter, error) {
+func NewVoter(
+	subject *subject.Subject,
+	ps *pubsub.PubSub,
+	lc *localContext.Context,
+	discovery discovery.Discovery,
+	verificationKey string,
+	announce bool,
+) (*Voter, error) {
 	id, err := NewIdentityPool()
 	if nil != err {
 		return nil, err
@@ -42,11 +54,11 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 		return nil, err
 	}
 
-	identitySub, err := ps.Subscribe("identity/" + subject.Hash().Hex().String())
+	identitySub, err := ps.Subscribe("identity/" + subject.HashHex().String())
 	if err != nil {
 		return nil, err
 	}
-	voteSub, err := ps.Subscribe("vote/" + subject.Hash().Hex().String())
+	voteSub, err := ps.Subscribe("vote/" + subject.HashHex().String())
 	if err != nil {
 		return nil, err
 	}
@@ -57,21 +69,35 @@ func NewVoter(subject *subject.Subject, ps *pubsub.PubSub, lc *localContext.Cont
 		Proposal:        p,
 		ps:              ps,
 		Context:         lc,
-		ballotMap:       ba.NewMap(),
+		ballotMap:       []*ba.Ballot{},
 		verificationKey: verificationKey,
+		discovery:       discovery,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
 			voteSub: voteSub,
 		},
 	}
+	v.Propose()
 
 	go v.identitySubHandler(v.subject.Hash(), v.subscription.idSub)
 	go v.voteSubHandler(v.subscription.voteSub)
+
+	if announce {
+		v.announce()
+	}
 	return v, nil
 }
 
+//
+// Identities
+//
+
 // Insert .
-func (v *Voter) Insert(identity id.Identity) (int, error) {
+func (v *Voter) Insert(identity *id.Identity) (int, error) {
+	if nil == identity {
+		return -1, fmt.Errorf("invalid input")
+	}
+
 	i, err := v.InsertIdc(identity.PathElement())
 	if nil != err {
 		return -1, err
@@ -80,7 +106,7 @@ func (v *Voter) Insert(identity id.Identity) (int, error) {
 }
 
 // Register .
-func (v *Voter) Register(identity id.Identity) (int, error) {
+func (v *Voter) Register(identity *id.Identity) (int, error) {
 	i, err := v.Insert(identity)
 	if nil != err {
 		return -1, err
@@ -92,6 +118,57 @@ func (v *Voter) Register(identity id.Identity) (int, error) {
 	}
 	return i, nil
 }
+
+// Overwrite .
+func (v *Voter) Overwrite(identities []*id.Identity) (int, error) {
+	idElements := make([]*id.IdPathElement, len(identities))
+	for i, e := range identities {
+		idElements[i] = e.PathElement()
+	}
+	return v.OverwriteIds(idElements)
+}
+
+//
+// Proposal
+//
+// Vote .
+func (v *Voter) Vote(ballot *ba.Ballot) error {
+	bytes, err := ballot.Byte()
+	if err != nil {
+		return err
+	}
+
+	// Check membership
+	bigRoot, _ := big.NewInt(0).SetString(ballot.Root, 10)
+	if !v.IsMember(id.NewIdPathElement(id.NewTreeContent(bigRoot))) {
+		return fmt.Errorf("Not a member")
+	}
+
+	// Update voteState
+	err = v.VoteWithProof(ballot, v.verificationKey)
+	if err != nil {
+		return err
+	}
+
+	// Store ballot
+	v.ballotMap = append(v.ballotMap, ballot)
+
+	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
+}
+
+// Open .
+func (v *Voter) Open() (yes, no int) {
+	return v.GetVotes(0)
+}
+
+// Propose .
+func (v *Voter) Propose() int {
+	return v.ProposeQuestion(v.subject.HashHex().String())
+}
+
+//
+// Getters
+//
 
 // GetIdentityIndex .
 func (v *Voter) GetIdentityIndex(identity id.Identity) int {
@@ -114,38 +191,8 @@ func (v *Voter) GetVoteSub() *pubsub.Subscription {
 }
 
 // GetBallotMap ...
-func (v *Voter) GetBallotMap() ba.Map {
+func (v *Voter) GetBallotMap() []*ba.Ballot {
 	return v.ballotMap
-}
-
-// Vote .
-func (v *Voter) Vote(ballot *ba.Ballot) error {
-	bytes, err := ballot.Byte()
-	if err != nil {
-		return err
-	}
-
-	// Check membership
-	bigRoot, _ := big.NewInt(0).SetString(ballot.Root, 10)
-	if !v.IsMember(id.NewIdPathElement(id.NewTreeContent(bigRoot))) {
-		return fmt.Errorf("Not a member")
-	}
-
-	// Update voteState
-	err = v.VoteWithProof(ballot, v.verificationKey)
-	if err != nil {
-		return err
-	}
-
-	// Store ballot
-	v.ballotMap[ballot.Hash().Hex()] = ballot
-
-	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
-}
-
-// Open .
-func (v *Voter) Open() (yes, no int) {
-	return v.GetVotes(0)
 }
 
 // GetAllIdentities .
@@ -167,6 +214,20 @@ func (v *Voter) GetIdentityPath(identity id.Identity) ([]*id.IdPathElement, []in
 	return elements, paths, root, nil
 }
 
+//
+// internals
+//
+
+func (v *Voter) announce() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// TODO: Check if the voter is ready for announcement
+	utils.LogInfo("Announce")
+	_, err := v.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+	return err
+}
+
 func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubsub.Subscription) {
 	for {
 		m, err := subscription.Next(*v.Ctx)
@@ -184,7 +245,7 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		}
 
 		// TODO: Implement consensus for insert
-		_, err = v.Insert(*identity)
+		_, err = v.Insert(identity)
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
 			continue
@@ -226,6 +287,6 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 		}
 
 		// Store ballot
-		v.ballotMap[ballot.Hash().Hex()] = ballot
+		v.ballotMap = append(v.ballotMap, ballot)
 	}
 }

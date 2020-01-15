@@ -368,7 +368,8 @@ func (node *Node) handlePutDHT() error {
 }
 
 func (node *Node) handlePutLocal() error {
-	return node.Store.PutLocal()
+	// return node.Store.PutLocal()
+	return nil
 }
 
 func (node *Node) handleGetDHT() error {
@@ -376,7 +377,8 @@ func (node *Node) handleGetDHT() error {
 }
 
 func (node *Node) handleGetLocal() error {
-	return node.Store.GetLocal()
+	// return node.Store.GetLocal()
+	return nil
 }
 
 func (node *Node) handlePropose() error {

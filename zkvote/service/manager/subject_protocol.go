@@ -130,7 +130,7 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 		identity := identity.NewIdentity(sub.Proposer)
 		subject := subject.NewSubject(sub.Title, sub.Description, identity)
 		subjectMap := sp.manager.Cache.GetCollectedSubjects()
-		subjectMap[subject.Hash().Hex()] = subject
+		subjectMap[*subject.HashHex()] = subject
 		results = append(results, subject)
 	}
 

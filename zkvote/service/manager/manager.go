@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
+const KEY_SUBJECTS = "subjects"
+
 // Manager ...
 type Manager struct {
 	*localContext.Context
@@ -32,6 +35,121 @@ type Manager struct {
 	voters            map[subject.HashHex]*voter.Voter
 
 	zkVerificationKey string
+}
+
+type storeObject struct {
+	Subject subject.Subject `json:"subject"`
+	Ids     []id.Identity   `json:"ids"`
+	Ballots []*ba.Ballot    `json:"ballots"`
+}
+
+func (m *Manager) save(key string, v interface{}) error {
+	jsonStr, err := json.Marshal(v)
+	if err != nil {
+		utils.LogErrorf("Marshal error %v", err.Error())
+		return err
+	}
+	// utils.LogDebugf("save, key: %v, value:%v", key, string(jsonStr))
+	err = m.Store.PutLocal(key, string(jsonStr))
+	if err != nil {
+		utils.LogErrorf("Put local db error, %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) saveSubjects() error {
+	subs := make([]subject.HashHex, len(m.voters))
+	i := 0
+	for k := range m.voters {
+		subs[i] = k
+		i++
+	}
+	return m.save(KEY_SUBJECTS, subs)
+}
+
+func (m *Manager) saveSubjectContent(subHex subject.HashHex) error {
+	voter := m.voters[subHex]
+	ids := voter.GetAllIdentities()
+	ballots := voter.GetBallotMap()
+	subj := m.Cache.GetACreatedSubject(subHex)
+
+	s := &storeObject{
+		Subject: *subj,
+		Ids:     ids,
+		Ballots: ballots,
+	}
+	return m.save(subHex.Hash().Hex().String(), s)
+}
+
+func (m *Manager) loadSubjects() ([]subject.HashHex, error) {
+	value, err := m.Store.GetLocal(KEY_SUBJECTS)
+	if err != nil {
+		utils.LogErrorf("Get local db error, %v", err)
+		return nil, err
+	}
+
+	var subs []subject.HashHex
+	err = json.Unmarshal([]byte(value), &subs)
+	if err != nil {
+		utils.LogErrorf("unmarshal subjects error, %v", err)
+	}
+
+	utils.LogDebugf("loaded subjects hex: %v", subs)
+	return subs, err
+}
+
+func (m *Manager) loadSubjectContent(subHex subject.HashHex) (*storeObject, error) {
+
+	utils.LogDebugf("load subject: %s", subHex.String())
+	value, err := m.Store.GetLocal(subHex.Hash().Hex().String())
+	if err != nil {
+		utils.LogErrorf("Get local db error, %v", err)
+		return nil, err
+	}
+
+	var obj storeObject
+	err = json.Unmarshal([]byte(value), &obj)
+	if err != nil {
+		utils.LogErrorf("unmarshal content of subject error, %v", err)
+		return nil, err
+	}
+	return &obj, nil
+}
+
+func (m *Manager) loadDB() {
+	subsHex, _ := m.loadSubjects()
+	for _, s := range subsHex {
+		if 0 == len(s.String()) {
+			continue
+		}
+
+		obj, err := m.loadSubjectContent(s)
+		if err != nil {
+			continue
+		}
+
+		m.propose(obj.Subject.GetTitle(), obj.Subject.GetDescription(), obj.Subject.GetProposer().String(), false)
+
+		for _, id := range obj.Ids {
+			if id.Equal(obj.Subject.GetProposer()) {
+				continue
+			}
+			m.Insert(utils.Remove0x(obj.Subject.HashHex().String()), id.String())
+		}
+
+		go func() {
+			for _, b := range obj.Ballots {
+				jStr, err := b.JSON()
+				if err != nil {
+					utils.LogWarningf("get json ballot error, %v", err)
+					break
+				}
+				m.Vote(utils.Remove0x(obj.Subject.HashHex().String()), jStr)
+			}
+		}()
+	}
 }
 
 // NewManager ...
@@ -57,6 +175,8 @@ func NewManager(
 	m.subjProtocol = NewSubjectProtocol(m)
 	m.idProtocol = NewIdentityProtocol(m, make(chan bool, 1))
 
+	m.loadDB()
+
 	return m, nil
 }
 
@@ -65,49 +185,85 @@ func NewManager(
 //
 // Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
-	// Store the new subject locally
-	identity := id.NewIdentity(identityCommitmentHex)
-	subject := subject.NewSubject(title, description, identity)
-	if _, ok := m.voters[subject.Hash().Hex()]; ok {
-		return fmt.Errorf("subject already existed")
+	if 0 == len(title) || 0 == len(identityCommitmentHex) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
 	}
 
-	_, err := m.newAVoter(subject, identityCommitmentHex)
-	if nil != err {
+	voter, err := m.propose(title, description, identityCommitmentHex, true)
+	if err != nil {
+		utils.LogWarningf("Propose error, %v", err)
 		return err
 	}
-
-	// Store the created subject
-	m.Cache.InsertCreatedSubject(subject.Hash().Hex(), subject)
-
-	m.announce()
-
+	m.saveSubjects()
+	m.saveSubjectContent(*voter.GetSubject().HashHex())
 	return nil
 }
 
-//
-// Protocol Handler
-//
+// Vote ...
+func (m *Manager) Vote(subjectHashHex string, proof string) error {
+	utils.LogInfof("Vote, subject:%s", subjectHashHex)
+	if 0 == len(subjectHashHex) || 0 == len(proof) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
+	voter := m.voters[subjHex]
+	ballot, err := ba.NewBallot(proof)
+	if err != nil {
+		return err
+	}
+
+	err = voter.Vote(ballot)
+	if err != nil {
+		return err
+	}
+
+	m.saveSubjectContent(subjHex)
+	return nil
+}
+
+// Open ...
+func (m *Manager) Open(subjectHashHex string) (int, int) {
+	voter := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	return voter.Open()
+}
+
 // Insert ...
 func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) error {
-	voter := m.voters[subject.HashHex(subjectHashHex)]
-	idx, err := voter.Insert(*id.NewIdentity(identityCommitmentHex))
+	utils.LogInfof("Insert, subject:%s, id:%v", subjectHashHex, identityCommitmentHex)
+	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	voter := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	_, err := voter.Insert(id.NewIdentity(identityCommitmentHex))
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
 		return err
 	}
-	_ = idx
+
+	m.saveSubjectContent(subject.HashHex(subjectHashHex))
+
 	return nil
 }
 
 // Overwrite ...
 func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
-	voter := m.voters[subject.HashHex(subjectHashHex)]
+	utils.LogInfof("overwrite, subject:%s", subjectHashHex)
+	if 0 == len(subjectHashHex) || 0 == len(identitySet) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
+	voter := m.voters[subjHex]
 
-	// Convert to idPathElement
-	set := make([]*id.IdPathElement, 0)
+	// Convert to Identity
+	set := make([]*id.Identity, 0)
 	for _, idStr := range identitySet {
-		set = append(set, id.NewIdentity(idStr).PathElement())
+		set = append(set, id.NewIdentity(idStr))
 	}
 
 	_, err := voter.Overwrite(set)
@@ -116,6 +272,7 @@ func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
 		return err
 	}
 
+	m.saveSubjectContent(subjHex)
 	return nil
 }
 
@@ -124,34 +281,27 @@ func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
 //
 // Join an existing subject
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
+	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
+	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
 	// Check if subjectHash is created by itself
 	createdSubs := m.GetCreatedSubjects()
-	if _, ok := createdSubs[subject.HashHex(subjectHashHex)]; ok {
+	if _, ok := createdSubs[subjHex]; ok {
 		return m.Insert(subjectHashHex, identityCommitmentHex)
 	}
 
 	collectedSubs := m.GetCollectedSubjects()
-	if sub, ok := collectedSubs[subject.HashHex(subjectHashHex)]; ok {
-		_, err := m.newAVoter(sub, identityCommitmentHex)
+	if sub, ok := collectedSubs[subjHex]; ok {
+		_, err := m.newAVoter(sub, identityCommitmentHex, false)
 		return err
 	}
+
+	m.saveSubjectContent(subjHex)
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
-}
-
-// Vote ...
-func (m *Manager) Vote(subjectHashHex string, proof string) error {
-	voter := m.voters[subject.HashHex(subjectHashHex)]
-	ballot, err := ba.NewBallot(proof)
-	if err != nil {
-		return err
-	}
-	return voter.Vote(ballot)
-}
-
-// Open ...
-func (m *Manager) Open(subjectHashHex string) (int, int) {
-	voter := m.voters[subject.HashHex(subjectHashHex)]
-	return voter.Open()
 }
 
 // FindProposers ...
@@ -185,7 +335,7 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		if peer.ID == m.Host.ID() {
 			continue
 		}
-		fmt.Println("found peer", peer)
+		utils.LogInfof("found peer, %v", peer)
 		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 		m.subjProtocol.GetCreatedSubjects(peer.ID)
 
@@ -198,8 +348,10 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		results := <-m.subjectProtocolCh
 		for _, subject := range results {
 			out <- subject
+			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
 		}
 	}
+	m.saveSubjects()
 	return out, nil
 }
 
@@ -239,10 +391,10 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
-	collections, _ := m.Collect()
-	for s := range collections {
-		result = append(result, s)
-	}
+	// collections, _ := m.Collect()
+	// for s := range collections {
+	// 	result = append(result, s)
+	// }
 	for _, s := range m.Cache.GetCreatedSubjects() {
 		result = append(result, s)
 	}
@@ -334,8 +486,8 @@ func (m *Manager) GetVoterIdentities() map[subject.HashHex][]*id.IdPathElement {
 }
 
 // GetBallotMaps ...
-func (m *Manager) GetBallotMaps() map[subject.HashHex]ba.Map {
-	result := make(map[subject.HashHex]ba.Map)
+func (m *Manager) GetBallotMaps() map[subject.HashHex][]*ba.Ballot {
+	result := make(map[subject.HashHex][]*ba.Ballot)
 
 	for k, v := range m.voters {
 		result[k] = v.GetBallotMap()
@@ -346,31 +498,55 @@ func (m *Manager) GetBallotMaps() map[subject.HashHex]ba.Map {
 //
 // internal functions
 //
-func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
+
+func (m *Manager) propose(title string, description string, identityCommitmentHex string, announce bool) (*voter.Voter, error) {
+	// Store the new subject locally
+	identity := id.NewIdentity(identityCommitmentHex)
+	if nil == identity {
+		return nil, fmt.Errorf("Can not get identity object by commitment %v", identityCommitmentHex)
+	}
+	subject := subject.NewSubject(title, description, identity)
+	if _, ok := m.voters[*subject.HashHex()]; ok {
+		return nil, fmt.Errorf("subject already existed")
+	}
+
+	voter, err := m.newAVoter(subject, identityCommitmentHex, announce)
+	if nil != err {
+		return nil, err
+	}
+
+	// Store the created subject
+	m.Cache.InsertCreatedSubject(*subject.HashHex(), subject)
+
+	// m.announce()
+	return voter, nil
+}
+
+func (m *Manager) newAVoter(sub *subject.Subject, idc string, announce bool) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
-	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
+	utils.LogInfo("New voter")
+	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.discovery, m.zkVerificationKey, announce)
 	if nil != err {
 		return nil, err
 	}
-	_, err = voter.Register(*id.NewIdentity(idc))
+
+	utils.LogInfof("Register, subject:%s, id:%v", sub.HashHex().String(), idc)
+	_, err = voter.Register(id.NewIdentity(idc))
 	if nil != err {
 		return nil, err
 	}
+	m.voters[*sub.HashHex()] = voter
 
-	pid := voter.Propose(sub.Hash().Hex().String())
-	_ = pid
-
-	m.voters[sub.Hash().Hex()] = voter
-	return m.voters[sub.Hash().Hex()], nil
+	return m.voters[*sub.HashHex()], nil
 }
 
-// Announce that the node has a proposal to be discovered
-func (m *Manager) announce() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+// // Announce that the node has a proposal to be discovered
+// func (m *Manager) announce() error {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+// 	defer cancel()
 
-	// TODO: Check if the voter is ready for announcement
-	fmt.Println("Announce")
-	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
-	return err
-}
+// 	// TODO: Check if the voter is ready for announcement
+// 	fmt.Println("Announce")
+// 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+// 	return err
+// }

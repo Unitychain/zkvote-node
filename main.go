@@ -21,6 +21,9 @@ func main() {
 	flag.Parse()
 
 	utils.OpenLog()
+	utils.LogInfo("======================")
+	utils.LogInfo("===== Node Start =====")
+	utils.LogInfo("======================")
 
 	// ~~ 0c. Note that contexts are an ugly way of controlling component
 	// lifecycles. Talk about the service-based host refactor.

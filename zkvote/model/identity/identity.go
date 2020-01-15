@@ -12,10 +12,10 @@ type Identity string
 // NewIdentity ...
 func NewIdentity(commitment string) *Identity {
 	// TODO: Change the encoding tp hex if needed
-	if !utils.CheckHex(commitment) {
+	if err := utils.CheckHex(commitment); err != nil {
 		return nil
 	}
-	id := Identity(commitment)
+	id := Identity(utils.Remove0x(commitment))
 	return &id
 }
 
@@ -30,14 +30,21 @@ func NewIdentityFromBytes(bytes []byte) *Identity {
 type Hash []byte
 
 // Byte ...
-func (id Identity) Byte() []byte { return utils.GetBytesFromHexString(string(id)) }
+func (id *Identity) Byte() []byte { return utils.GetBytesFromHexString(id.String()) }
 
 // String ...
-func (id Identity) String() string { return string(id) }
+func (id *Identity) String() string { return string(*id) }
 
 // Hex ...
-func (id Identity) Hex() string {
+func (id *Identity) Hex() string {
 	return utils.GetHexStringFromBigInt(big.NewInt(0).SetBytes(id.Byte()))
+}
+
+// Equal .
+func (id *Identity) Equal(othID *Identity) bool {
+	self := big.NewInt(0).SetBytes(id.Byte())
+	oth := big.NewInt(0).SetBytes(othID.Byte())
+	return 0 == self.Cmp(oth)
 }
 
 // PathElement ...
@@ -67,17 +74,21 @@ type IdPathElement struct {
 func NewIdPathElement(t *TreeContent) *IdPathElement {
 	return &IdPathElement{t}
 }
-func (i IdPathElement) String() string {
+func (i *IdPathElement) String() string {
 	if nil == i.e || 0 == i.e.BigInt().Cmp(big.NewInt(0)) {
 		return "0"
 	}
 	return i.e.String()
 }
-func (i IdPathElement) Hex() string {
+func (i *IdPathElement) Hex() string {
 	if nil == i.e || 0 == i.e.BigInt().Cmp(big.NewInt(0)) {
 		return "0x0"
 	}
 	return i.e.Hex()
 }
-func (i IdPathElement) BigInt() *big.Int     { return i.e.BigInt() }
-func (i IdPathElement) Content() TreeContent { return *i.e }
+func (i *IdPathElement) Equal(oth IdPathElement) bool {
+	b, _ := i.e.Equals(oth.e)
+	return b
+}
+func (i *IdPathElement) BigInt() *big.Int     { return i.e.BigInt() }
+func (i *IdPathElement) Content() TreeContent { return *i.e }

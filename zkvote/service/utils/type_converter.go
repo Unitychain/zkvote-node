@@ -6,12 +6,10 @@ import (
 	"strings"
 )
 
-func CheckHex(s string) bool {
+// CheckHex .
+func CheckHex(s string) error {
 	_, err := h.DecodeString(Remove0x(s))
-	if err != nil {
-		return false
-	}
-	return true
+	return err
 }
 
 // Remove0x ...
