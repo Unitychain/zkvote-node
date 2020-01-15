@@ -101,7 +101,11 @@ func (c *Controller) propose(rw http.ResponseWriter, req *http.Request) {
 		title = request.ProposeParams.Title
 		description = request.ProposeParams.Description
 		identityCommitment = request.ProposeParams.IdentityCommitment
-		c.Propose(title, description, identityCommitment)
+		err := c.Propose(title, description, identityCommitment)
+		if err != nil {
+			c.writeGenericError(rw, err, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	response := subjectModel.ProposeResponse{
