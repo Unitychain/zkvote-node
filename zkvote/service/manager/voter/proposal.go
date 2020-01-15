@@ -190,16 +190,16 @@ func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) (bool, error)
 
 	bigExternalNull, _ := big.NewInt(0).SetString(externalNullifier, 10)
 	if 0 != p.nullifiers[0].hash.Cmp(bigExternalNull) {
-		utils.LogWarningf("question doesn't match (%v)/(%v)\n", p.nullifiers[0].hash, bigExternalNull)
-		return false, fmt.Errorf(fmt.Sprintf("question doesn't match (%v)/(%v)\n", p.nullifiers[0].hash, bigExternalNull))
+		utils.LogWarningf("question doesn't match (%v)/(%v)", p.nullifiers[0].hash, bigExternalNull)
+		return false, fmt.Errorf(fmt.Sprintf("question doesn't match (%v)/(%v)", p.nullifiers[0].hash, bigExternalNull))
 	}
 	if p.isVoted(nullifierHash) {
-		utils.LogWarningf("Voted already, %v\n", nullifierHash)
+		utils.LogWarningf("Voted already, %v", nullifierHash)
 		return false, fmt.Errorf("voted already")
 	}
 	if !isValidOpinion(singalHash) {
-		utils.LogWarningf("Not a valid vote hash, %v\n", singalHash)
-		return false, fmt.Errorf(fmt.Sprintf("Not a valid vote hash, %v\n", singalHash))
+		utils.LogWarningf("Not a valid vote hash, %v", singalHash)
+		return false, fmt.Errorf(fmt.Sprintf("Not a valid vote hash, %v", singalHash))
 	}
 
 	return Verify(vkString, ballot.Proof, ballot.PublicSignal), nil
