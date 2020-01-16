@@ -130,7 +130,7 @@ func (m *Manager) loadDB() {
 			continue
 		}
 
-		m.propose(obj.Subject.GetTitle(), obj.Subject.GetDescription(), obj.Subject.GetProposer().String(), false)
+		m.propose(obj.Subject.GetTitle(), obj.Subject.GetDescription(), obj.Subject.GetProposer().String())
 
 		for _, id := range obj.Ids {
 			if id.Equal(obj.Subject.GetProposer()) {
@@ -190,7 +190,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 		return fmt.Errorf("invalid input")
 	}
 
-	voter, err := m.propose(title, description, identityCommitmentHex, true)
+	voter, err := m.propose(title, description, identityCommitmentHex)
 	if err != nil {
 		utils.LogWarningf("Propose error, %v", err)
 		return err
@@ -296,7 +296,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
-		_, err := m.newAVoter(sub, identityCommitmentHex, false)
+		_, err := m.newAVoter(sub, identityCommitmentHex)
 		return err
 	}
 
@@ -499,7 +499,7 @@ func (m *Manager) GetBallotMaps() map[subject.HashHex][]*ba.Ballot {
 // internal functions
 //
 
-func (m *Manager) propose(title string, description string, identityCommitmentHex string, announce bool) (*voter.Voter, error) {
+func (m *Manager) propose(title string, description string, identityCommitmentHex string) (*voter.Voter, error) {
 	// Store the new subject locally
 	identity := id.NewIdentity(identityCommitmentHex)
 	if nil == identity {
@@ -510,7 +510,7 @@ func (m *Manager) propose(title string, description string, identityCommitmentHe
 		return nil, fmt.Errorf("subject already existed")
 	}
 
-	voter, err := m.newAVoter(subject, identityCommitmentHex, announce)
+	voter, err := m.newAVoter(subject, identityCommitmentHex)
 	if nil != err {
 		return nil, err
 	}
@@ -518,14 +518,13 @@ func (m *Manager) propose(title string, description string, identityCommitmentHe
 	// Store the created subject
 	m.Cache.InsertCreatedSubject(*subject.HashHex(), subject)
 
-	// m.announce()
 	return voter, nil
 }
 
-func (m *Manager) newAVoter(sub *subject.Subject, idc string, announce bool) (*voter.Voter, error) {
+func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
 	utils.LogInfo("New voter")
-	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.discovery, m.zkVerificationKey, announce)
+	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
 	if nil != err {
 		return nil, err
 	}
@@ -537,16 +536,18 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string, announce bool) (*v
 	}
 	m.voters[*sub.HashHex()] = voter
 
+	m.announce()
+
 	return m.voters[*sub.HashHex()], nil
 }
 
-// // Announce that the node has a proposal to be discovered
-// func (m *Manager) announce() error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-// 	defer cancel()
+// Announce that the node has a proposal to be discovered
+func (m *Manager) announce() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-// 	// TODO: Check if the voter is ready for announcement
-// 	fmt.Println("Announce")
-// 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
-// 	return err
-// }
+	// TODO: Check if the voter is ready for announcement
+	fmt.Println("Announce")
+	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+	return err
+}
