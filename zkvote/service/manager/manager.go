@@ -396,10 +396,10 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
-	// collections, _ := m.Collect()
-	// for s := range collections {
-	// 	result = append(result, s)
-	// }
+	collections, _ := m.Collect()
+	for s := range collections {
+		result = append(result, s)
+	}
 	for _, s := range m.Cache.GetCreatedSubjects() {
 		result = append(result, s)
 	}
