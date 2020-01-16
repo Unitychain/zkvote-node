@@ -153,7 +153,7 @@ func (v *Voter) Open() (yes, no int) {
 
 // Propose .
 func (v *Voter) Propose() int {
-	return v.ProposeQuestion(v.subject.HashHex().String())
+	return v.ProposeSubject(*v.subject.HashHex())
 }
 
 //

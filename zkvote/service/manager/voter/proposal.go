@@ -7,6 +7,7 @@ import (
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 type state struct {
@@ -52,18 +53,18 @@ func NewProposal() (*Proposal, error) {
 }
 
 // Propose : propose the hash of a question
-func (p *Proposal) ProposeQuestion(q string) int {
-	if 0 == len(q) {
+func (p *Proposal) ProposeSubject(subHash subject.HashHex) int {
+	if 0 == len(subHash) {
 		utils.LogWarning("input qeustion in empty")
 		return -1
 	}
 
 	// bigHashQus := big.NewInt(0).SetBytes(crypto.Keccak256([]byte(q)))
-	bigHashQus := utils.GetBigIntFromHexString(q)
+	bigHashQus := utils.GetBigIntFromHexString(subHash.String())
 	p.nullifiers[p.index] = &nullifier{
 		// TODO: Div(8) is a workaround because a bits conversion issue in circom
 		hash:    bigHashQus.Div(bigHashQus, big.NewInt(8)),
-		content: q,
+		content: subHash.String(),
 		voteState: state{
 			opinion:  []bool{},
 			finished: false,
