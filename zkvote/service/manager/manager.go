@@ -33,6 +33,7 @@ type Manager struct {
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
 	voters            map[subject.HashHex]*voter.Voter
+	chAnnounce		  chan bool
 
 	zkVerificationKey string
 }
@@ -66,6 +67,7 @@ func (m *Manager) saveSubjects() error {
 		subs[i] = k
 		i++
 	}
+
 	return m.save(KEY_SUBJECTS, subs)
 }
 
@@ -170,11 +172,13 @@ func NewManager(
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 		voters:            make(map[subject.HashHex]*voter.Voter),
+		chAnnounce:		   make(chan bool),
 		zkVerificationKey: zkVerificationKey,
 	}
 	m.subjProtocol = NewSubjectProtocol(m)
 	m.idProtocol = NewIdentityProtocol(m, make(chan bool, 1))
 
+	go m.announce()
 	m.loadDB()
 
 	return m, nil
@@ -185,6 +189,7 @@ func NewManager(
 //
 // Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
+	utils.LogInfof("Propose, title:%v, desc:%v, id:%v", title, description, identityCommitmentHex)
 	if 0 == len(title) || 0 == len(identityCommitmentHex) {
 		utils.LogWarningf("Invalid input")
 		return fmt.Errorf("invalid input")
@@ -536,18 +541,24 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	}
 	m.voters[*sub.HashHex()] = voter
 
-	m.announce()
+	if nil != m.chAnnounce {
+		m.chAnnounce <- true
+	}
 
 	return m.voters[*sub.HashHex()], nil
 }
 
 // Announce that the node has a proposal to be discovered
 func (m *Manager) announce() error {
+	<- m.chAnnounce
+	close(m.chAnnounce)
+	m.chAnnounce = nil
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// TODO: Check if the voter is ready for announcement
-	fmt.Println("Announce")
+	utils.LogInfo("Announce")
 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
 	return err
 }
