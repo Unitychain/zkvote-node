@@ -75,7 +75,7 @@ func (m *Manager) saveSubjectContent(subHex subject.HashHex) error {
 	voter := m.voters[subHex]
 	ids := voter.GetAllIdentities()
 	ballots := voter.GetBallotMap()
-	subj := m.Cache.GetACreatedSubject(subHex)
+	subj := voter.GetSubject()
 
 	s := &storeObject{
 		Subject: *subj,
