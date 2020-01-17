@@ -325,6 +325,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 		return err
 	}
 
+	m.saveSubjects()
 	m.saveSubjectContent(subjHex)
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
 }
@@ -373,7 +374,6 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		utils.LogWarning("Collect timeout")
 	}
 
-	m.saveSubjects()
 	return out, nil
 }
 

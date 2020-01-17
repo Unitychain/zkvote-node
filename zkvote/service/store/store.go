@@ -74,7 +74,6 @@ func (store *Store) GetDHT() error {
 func (store *Store) PutLocal(k, v string) error {
 	err := store.db.Put(mkDsKey(k), []byte(v))
 	if err != nil {
-		// utils.LogErrorf("Put local db error, %v", err)
 		return err
 	}
 
@@ -85,10 +84,8 @@ func (store *Store) PutLocal(k, v string) error {
 func (store *Store) GetLocal(k string) (string, error) {
 	vb, err := store.db.Get(mkDsKey(k))
 	if err != nil {
-		// utils.LogErrorf("Get local db error, %v", err)
 		return "", err
 	}
-	// utils.LogDebugf("Value: %s", string(vb))
 
 	return string(vb), nil
 }

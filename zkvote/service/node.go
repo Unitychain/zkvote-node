@@ -27,9 +27,12 @@ import (
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/service/manager"
 	"github.com/unitychain/zkvote-node/zkvote/service/store"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // node client version
+
+const DB_PEER_ID = "peerID"
 
 // Node ...
 type Node struct {
@@ -42,6 +45,30 @@ type Node struct {
 	streams   chan network.Stream
 }
 
+func loadPrivateKey(ds datastore.Batching) (crypto.PrivKey, error) {
+	var prvKey crypto.PrivKey
+	var err error
+
+	tmpStore, _ := store.NewStore(nil, ds)
+	strKey, _ := tmpStore.GetLocal(DB_PEER_ID)
+	if 0 == len(strKey) {
+		utils.LogInfof("Generate a new private key!")
+		prvKey, _, _ = crypto.GenerateKeyPair(crypto.ECDSA, 0)
+		// priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
+		b, _ := prvKey.Raw()
+		tmpStore.PutLocal(DB_PEER_ID, utils.Remove0x(utils.GetHexStringFromBytes(b)))
+	} else {
+		prvKey, err = crypto.UnmarshalECDSAPrivateKey(utils.GetBytesFromHexString(strKey))
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal private key error, %v", err)
+		}
+	}
+	b, _ := prvKey.GetPublic().Bytes()
+	utils.LogInfof("peer pub key: %v", utils.GetHexStringFromBytes(b))
+
+	return prvKey, err
+}
+
 // NewNode create a new node with its implemented protocols
 func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int) (*Node, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
@@ -49,11 +76,13 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	// Ignoring most errors for brevity
 	// See echo example for more details and better implementation
 
-	// priv, _, _ := crypto.GenerateKeyPair(crypto.Secp256k1, 256)
-	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
+	prvKey, err := loadPrivateKey(ds)
+	if err != nil {
+		panic(err)
+	}
 	// listen, _ := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port))
 
-	opts := []libp2p.Option{libp2p.ConnectionManager(cmgr), libp2p.Identity(priv)}
+	opts := []libp2p.Option{libp2p.ConnectionManager(cmgr), libp2p.Identity(prvKey)}
 	if relay {
 		opts = append(opts, libp2p.EnableRelay(circuit.OptHop))
 	}
