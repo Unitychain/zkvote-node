@@ -72,7 +72,10 @@ func (m *Manager) saveSubjects() error {
 }
 
 func (m *Manager) saveSubjectContent(subHex subject.HashHex) error {
-	voter := m.voters[subHex]
+	voter, ok := m.voters[subHex]
+	if !ok {
+		return fmt.Errorf("Can't get voter with subject hash: %v", subHex)
+	}
 	ids := voter.GetAllIdentities()
 	ballots := voter.GetBallotMap()
 	subj := voter.GetSubject()
@@ -214,7 +217,11 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 	}
 
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-	voter := m.voters[subjHex]
+	voter, ok := m.voters[subjHex]
+	if !ok {
+		utils.LogWarningf("Can't get voter with subject hash: %v", subjHex)
+		return fmt.Errorf("Can't get voter with subject hash: %v", subjHex)
+	}
 	ballot, err := ba.NewBallot(proof)
 	if err != nil {
 		return err
@@ -231,7 +238,12 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 
 // Open ...
 func (m *Manager) Open(subjectHashHex string) (int, int) {
-	voter := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	utils.LogInfof("Open subject: %v", subjectHashHex)
+	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	if !ok {
+		utils.LogWarningf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+		return -1, -1
+	}
 	return voter.Open()
 }
 
@@ -243,7 +255,11 @@ func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) er
 		return fmt.Errorf("invalid input")
 	}
 
-	voter := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	if !ok {
+		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+	}
+
 	_, err := voter.Insert(id.NewIdentity(identityCommitmentHex))
 	if nil != err {
 		utils.LogWarningf("identity pool registration error, %v", err.Error())
@@ -251,8 +267,8 @@ func (m *Manager) Insert(subjectHashHex string, identityCommitmentHex string) er
 	}
 
 	m.saveSubjectContent(subject.HashHex(subjectHashHex))
-
 	return nil
+
 }
 
 // Overwrite ...
@@ -263,7 +279,11 @@ func (m *Manager) Overwrite(subjectHashHex string, identitySet []string) error {
 		return fmt.Errorf("invalid input")
 	}
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-	voter := m.voters[subjHex]
+	voter, ok := m.voters[subjHex]
+	if !ok {
+		utils.LogWarningf("can't get voter with subject hash:%v", subjHex)
+		return fmt.Errorf("can't get voter with subject hash:%v", subjHex)
+	}
 
 	// Convert to Identity
 	set := make([]*id.Identity, 0)
@@ -446,7 +466,11 @@ func (m *Manager) GetIdentityPath(
 	identityCommitmentHex string) (
 	[]string, []int, string, error) {
 
-	voter := m.voters[subject.HashHex(subjectHashHex)]
+	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	if !ok {
+		utils.LogWarningf("can't get voter with subject hash:%v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+		return nil, nil, "", fmt.Errorf("can't get voter with subject hash:%v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+	}
 	idPaths, idPathIndexes, root, err := voter.GetIdentityPath(*id.NewIdentity(identityCommitmentHex))
 	if err != nil {
 		return nil, nil, "", err
