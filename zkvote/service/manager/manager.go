@@ -313,7 +313,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	}
 
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-	// Check if subjectHash is created by itself
+	// No need to new a voter if the subjec is created by itself
 	createdSubs := m.GetCreatedSubjects()
 	if _, ok := createdSubs[subjHex]; ok {
 		return m.Insert(subjectHashHex, identityCommitmentHex)
@@ -322,6 +322,9 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
 		_, err := m.newAVoter(sub, identityCommitmentHex)
+		// Sync identities
+		// TODO: return sync error
+		_ = m.SyncIdentityIndex(subjHex)
 		return err
 	}
 
@@ -377,17 +380,17 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 	return out, nil
 }
 
+// TODO: move to voter.go
 // SyncIdentityIndex ...
-func (m *Manager) SyncIdentityIndex() error {
-	for _, voter := range m.voters {
-		subjectHash := voter.GetSubject().Hash()
-		// Get peers from the same pubsub
-		peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
-		utils.LogDebugf("%v", peers)
-		// Request for registry
-		for _, peer := range peers {
-			m.idProtocol.GetIdentityIndexFromPeer(peer, subjectHash)
-		}
+func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) error {
+	voter := m.voters[subjHex]
+	subjHash := subjHex.Hash()
+	// Get peers from the same pubsub
+	peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
+	utils.LogDebugf("%v", peers)
+	// Request for registry
+	for _, peer := range peers {
+		m.idProtocol.GetIdentityIndexFromPeer(peer, &subjHash)
 	}
 	return nil
 }
@@ -556,10 +559,19 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	}
 
 	utils.LogInfof("Register, subject:%s, id:%v", sub.HashHex().String(), idc)
-	_, err = voter.Register(id.NewIdentity(idc))
+	identity := id.NewIdentity(idc)
+	// Insert idenitty to identity pool
+	_, err = voter.Insert(identity)
 	if nil != err {
 		return nil, err
 	}
+
+	// Publish identity to other pubsub peers
+	err = voter.Join(identity)
+	if nil != err {
+		return nil, err
+	}
+
 	m.voters[*sub.HashHex()] = voter
 
 	if nil != m.chAnnounce {

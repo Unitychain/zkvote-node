@@ -352,7 +352,7 @@ func (node *Node) Run() {
 		{"Manager: Join a subject", node.handleJoin},
 		{"Manager: Find topic providers", node.handleFindProposers},
 		{"Manager: Collect all topics", node.handleCollect},
-		{"Manager: Sync identity index", node.handleSyncIdentityIndex},
+		// {"Manager: Sync identity index", node.handleSyncIdentityIndex},
 		{"Store: Put DHT", node.handlePutDHT},
 		{"Store: Get DHT", node.handleGetDHT},
 		{"Store: Put Local", node.handlePutLocal},
@@ -450,9 +450,9 @@ func (node *Node) handleJoin() error {
 	return node.Join(subjectHashHex, identityCommitmentHex)
 }
 
-func (node *Node) handleSyncIdentityIndex() error {
-	return node.SyncIdentityIndex()
-}
+// func (node *Node) handleSyncIdentityIndex() error {
+// 	return node.SyncIdentityIndex()
+// }
 
 // func (node *Node) handlePrintInboundMessages() error {
 // 	return node.PrintInboundMessages()
