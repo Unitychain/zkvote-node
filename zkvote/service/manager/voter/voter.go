@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
@@ -95,18 +94,9 @@ func (v *Voter) Insert(identity *id.Identity) (int, error) {
 	return i, nil
 }
 
-// Register .
-func (v *Voter) Register(identity *id.Identity) (int, error) {
-	i, err := v.Insert(identity)
-	if nil != err {
-		return -1, err
-	}
-
-	err = v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
-	if nil != err {
-		return -1, err
-	}
-	return i, nil
+// Join .
+func (v *Voter) Join(identity *id.Identity) error {
+	return v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
 }
 
 // Overwrite .
