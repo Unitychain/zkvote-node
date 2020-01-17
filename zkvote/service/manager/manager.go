@@ -33,7 +33,7 @@ type Manager struct {
 	providers         map[peer.ID]string
 	subjectProtocolCh chan []*subject.Subject
 	voters            map[subject.HashHex]*voter.Voter
-	chAnnounce		  chan bool
+	chAnnounce        chan bool
 
 	zkVerificationKey string
 }
@@ -172,7 +172,7 @@ func NewManager(
 		providers:         make(map[peer.ID]string),
 		subjectProtocolCh: make(chan []*subject.Subject, 10),
 		voters:            make(map[subject.HashHex]*voter.Voter),
-		chAnnounce:		   make(chan bool),
+		chAnnounce:        make(chan bool),
 		zkVerificationKey: zkVerificationKey,
 	}
 	m.subjProtocol = NewSubjectProtocol(m)
@@ -333,8 +333,6 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		fmt.Println(err)
 	}
 
-	var resultCount int
-
 	for peer := range proposers {
 		// Ignore self ID
 		if peer.ID == m.Host.ID() {
@@ -343,19 +341,18 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		utils.LogInfof("found peer, %v", peer)
 		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 		m.subjProtocol.GetCreatedSubjects(peer.ID)
-
-		resultCount++
 	}
 
-	// TODO: refactor to non-blocking
-	for i := 0; i < resultCount; i++ {
-		// Block here
-		results := <-m.subjectProtocolCh
+	select {
+	case results := <-m.subjectProtocolCh:
 		for _, subject := range results {
 			out <- subject
 			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
 		}
+	case <-time.After(1000 * time.Millisecond):
+		utils.LogWarning("Collect timeout")
 	}
+
 	m.saveSubjects()
 	return out, nil
 }
@@ -550,7 +547,7 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 
 // Announce that the node has a proposal to be discovered
 func (m *Manager) announce() error {
-	<- m.chAnnounce
+	<-m.chAnnounce
 	close(m.chAnnounce)
 	m.chAnnounce = nil
 
