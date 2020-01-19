@@ -22,15 +22,13 @@ const identityResponse = "/identity/res/0.0.1"
 type IdentityProtocol struct {
 	manager  *Manager
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
-	done     chan bool                      // only for demo purposes to stop main from terminating
 }
 
 // NewIdentityProtocol ...
-func NewIdentityProtocol(m *Manager, done chan bool) *IdentityProtocol {
+func NewIdentityProtocol(m *Manager) *IdentityProtocol {
 	sp := &IdentityProtocol{
 		manager:  m,
 		requests: make(map[string]*pb.IdentityRequest),
-		done:     done,
 	}
 	m.Host.SetStreamHandler(identityRequest, sp.onIdentityRequest)
 	m.Host.SetStreamHandler(identityResponse, sp.onIdentityResponse)
@@ -147,7 +145,6 @@ func (sp *IdentityProtocol) onIdentityResponse(s network.Stream) {
 	}
 
 	log.Printf("Received identity response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
-	sp.done <- true
 }
 
 // GetIdentityIndexFromPeer ...
