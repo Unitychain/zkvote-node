@@ -45,7 +45,7 @@ func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 
 // OverwriteIds .
 // return total len and error
-func (i *IdentityPool) OverwriteIds(commitmentSet []*IdPathElement) (int, error) {
+func (i *IdentityPool) OverwriteIdElements(commitmentSet []*IdPathElement) (int, error) {
 
 	// backup tree and history
 	bckTree := i.tree
