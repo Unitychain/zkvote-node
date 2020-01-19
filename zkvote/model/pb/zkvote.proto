@@ -28,7 +28,6 @@ message Subject {
 
 // identity protocol
 
-// a protocol define a set of reuqest and responses
 message IdentityRequest {
     Metadata metadata = 1;
 
@@ -44,6 +43,23 @@ message IdentityResponse {
     string message = 2;
     bytes subjectHash = 3;
     repeated string identitySet = 4;
+}
+
+message BallotRequest {
+    Metadata metadata = 1;
+
+    // method specific data
+    string message = 2;
+    bytes subjectHash = 3;
+}
+
+message BallotResponse {
+    Metadata metadata = 1;
+
+    // response specific data
+    string message = 2;
+    bytes subjectHash = 3;
+    repeated string ballotSet = 4;
 }
 
 // designed to be shared between all app protocols
