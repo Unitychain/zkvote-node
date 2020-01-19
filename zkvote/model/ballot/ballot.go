@@ -24,6 +24,9 @@ type Hash []byte
 // HashHex ...
 type HashHex string
 
+// NullifierHashHex ...
+type NullifierHashHex string
+
 // NewBallot ...
 func NewBallot(proof string) (*Ballot, error) {
 	if 0 == len(proof) {
@@ -56,6 +59,12 @@ func (b *Ballot) Hash() *Hash {
 	return &result
 }
 
+// NullifierHashHex ...
+func (b *Ballot) NullifierHashHex() NullifierHashHex {
+	// Convert to hex if needed
+	return NullifierHashHex(b.NullifierHash)
+}
+
 // JSON .
 func (b *Ballot) JSON() (string, error) {
 	d, e := b.Byte()
@@ -68,9 +77,9 @@ func (h Hash) Hex() HashHex {
 }
 
 // Map ...
-type Map map[HashHex]*Ballot
+type Map map[NullifierHashHex]*Ballot
 
 // NewMap ...
 func NewMap() Map {
-	return Map(make(map[HashHex]*Ballot))
+	return Map(make(map[NullifierHashHex]*Ballot))
 }
