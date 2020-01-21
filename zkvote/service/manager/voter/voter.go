@@ -22,7 +22,6 @@ type Voter struct {
 	subject *subject.Subject
 	*IdentityPool
 	*Proposal
-	ballotMap       ba.Map
 	verificationKey string
 
 	*localContext.Context
@@ -62,7 +61,6 @@ func NewVoter(
 		Proposal:        p,
 		ps:              ps,
 		Context:         lc,
-		ballotMap:       ba.NewMap(),
 		verificationKey: verificationKey,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
@@ -81,6 +79,15 @@ func NewVoter(
 // Identities
 //
 
+func (v *Voter) insertCache() {
+	set := v.GetAllIds()
+	idSet := id.NewSet()
+	for _, v := range set {
+		idSet[*id.NewIdentity(v.Hex())] = v.Hex()
+	}
+	v.Cache.InsertIdentitySet(v.subject.Hash().Hex(), idSet)
+}
+
 // InsertIdentity .
 func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 	if nil == identity {
@@ -91,17 +98,10 @@ func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 	if nil != err {
 		return -1, err
 	}
+
+	v.insertCache()
+
 	return i, nil
-}
-
-// InsertBallot ...
-func (v *Voter) InsertBallot(ballot *ba.Ballot) error {
-	if nil == ballot {
-		return fmt.Errorf("invalid input")
-	}
-
-	v.ballotMap[ballot.NullifierHashHex()] = ballot
-	return nil
 }
 
 // Join .
@@ -115,6 +115,9 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 	for i, e := range identities {
 		idElements[i] = e.PathElement()
 	}
+
+	v.insertCache()
+
 	return v.OverwriteIdElements(idElements)
 }
 
@@ -141,8 +144,6 @@ func (v *Voter) Vote(ballot *ba.Ballot) error {
 	}
 
 	// Store ballot
-	v.ballotMap[ballot.NullifierHashHex()] = ballot
-
 	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
 }
 
@@ -182,7 +183,7 @@ func (v *Voter) GetVoteSub() *pubsub.Subscription {
 
 // GetBallotMap ...
 func (v *Voter) GetBallotMap() ba.Map {
-	return v.ballotMap
+	return v.GetBallots()
 }
 
 // GetAllIdentities .
@@ -265,8 +266,5 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 			utils.LogWarningf("voteSubHandler: %v", err.Error())
 			continue
 		}
-
-		// Store ballot
-		v.ballotMap[ballot.NullifierHashHex()] = ballot
 	}
 }

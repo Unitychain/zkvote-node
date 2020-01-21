@@ -22,12 +22,12 @@ const identityResponse = "/identity/res/0.0.1"
 // IdentityProtocol type
 type IdentityProtocol struct {
 	channels map[subject.HashHex]chan<- []string
-	context  context.Context
+	context  *context.Context
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
 }
 
 // NewIdentityProtocol ...
-func NewIdentityProtocol(context context.Context) Protocol {
+func NewIdentityProtocol(context *context.Context) Protocol {
 	sp := &IdentityProtocol{
 		context:  context,
 		requests: make(map[string]*pb.IdentityRequest),
@@ -65,9 +65,10 @@ func (sp *IdentityProtocol) onRequest(s network.Stream) {
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
 	var identitySet []string
-	set, err := sp.manager.GetIdentitySet(&subjectHash)
-	for _, h := range set {
-		identitySet = append(identitySet, h.String())
+	set := sp.context.Cache.GetIdentitySet(subjectHash.Hex())
+	// set, err := sp.manager.GetIdentitySet(&subjectHash)
+	for k := range set {
+		identitySet = append(identitySet, k.String())
 	}
 	resp := &pb.IdentityResponse{Metadata: NewMetadata(sp.context.Host, data.Metadata.Id, false),
 		Message: fmt.Sprintf("Identity response from %s", sp.context.Host.ID()), SubjectHash: subjectHash.Byte(), IdentitySet: identitySet}

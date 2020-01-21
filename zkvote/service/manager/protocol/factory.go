@@ -11,7 +11,7 @@ const (
 )
 
 // NewProtocol .
-func NewProtocol(t ProtocolType, context context.Context) Protocol {
+func NewProtocol(t ProtocolType, context *context.Context) Protocol {
 	switch t {
 	case BallotProtocolType:
 		return NewBallotProtocol(context)
