@@ -6,8 +6,8 @@ import (
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 type state struct {
@@ -26,6 +26,7 @@ type nullifier struct {
 // TODO: Rename
 type Proposal struct {
 	nullifiers map[int]*nullifier
+	ballotMap  ba.Map
 	index      int
 }
 
@@ -48,6 +49,7 @@ func NewProposal() (*Proposal, error) {
 
 	return &Proposal{
 		nullifiers: nullifiers,
+		ballotMap:  ba.NewMap(),
 		index:      index,
 	}, nil
 }
@@ -90,6 +92,7 @@ func (p *Proposal) VoteWithProof(ballot *ba.Ballot, vkString string) error {
 		p.nullifiers[0].voteState.opinion = append(p.nullifiers[0].voteState.opinion, false)
 	}
 
+	p.ballotMap[ballot.NullifierHashHex()] = ballot
 	return nil
 }
 
@@ -107,6 +110,20 @@ func (p *Proposal) Close(idx int) {
 		return
 	}
 	p.nullifiers[idx].voteState.finished = true
+}
+
+// InsertBallot ...
+func (p *Proposal) InsertBallot(ballot *ba.Ballot) error {
+	if nil == ballot {
+		return fmt.Errorf("invalid input")
+	}
+
+	p.ballotMap[ballot.NullifierHashHex()] = ballot
+	return nil
+}
+
+func (p *Proposal) GetBallots() ba.Map {
+	return p.ballotMap
 }
 
 // HasProposal : check proposal exists or not

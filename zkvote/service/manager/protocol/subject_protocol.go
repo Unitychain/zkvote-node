@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // pattern: /protocol-name/request-or-response-message/version
@@ -22,13 +24,13 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	channel  chan<- []*subject.Subject
-	context  context.Context
+	channel  chan<- []string
+	context  *context.Context
 	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(context context.Context) Protocol {
+func NewSubjectProtocol(context *context.Context) Protocol {
 	sp := &SubjectProtocol{
 		context:  context,
 		requests: make(map[string]*pb.SubjectRequest),
@@ -102,7 +104,7 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 
 // remote ping response handler
 func (sp *SubjectProtocol) onResponse(s network.Stream) {
-	results := make([]*subject.Subject, 0)
+	// results := make([]*subject.Subject, 0)
 
 	data := &pb.SubjectResponse{}
 	buf, err := ioutil.ReadAll(s)
@@ -127,13 +129,19 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	// 	return
 	// }
 
-	// Store all topics
+	// Store all topics]
+	var results []string
 	for _, sub := range data.Subjects {
 		identity := identity.NewIdentity(sub.Proposer)
 		subject := subject.NewSubject(sub.Title, sub.Description, identity)
 		subjectMap := sp.context.Cache.GetCollectedSubjects()
 		subjectMap[*subject.HashHex()] = subject
-		results = append(results, subject)
+
+		b, err := json.Marshal(subject)
+		if err != nil {
+			utils.LogWarningf("Marshal failed, %v", err)
+		}
+		results = append(results, string(b))
 	}
 
 	// locate request data and remove it if found
@@ -146,13 +154,19 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 		return
 	}
 	log.Printf("Received subject response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
+
+	// b, err := json.Marshal(results)
+	// if err != nil {
+	// 	utils.LogWarningf("Marshal failed, %v", err)
+	// }
 	sp.channel <- results
 	// sp.manager.subjectProtocolCh <- results
 }
 
 // SubmitRequest ...
-func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, ch chan<- []*subject.Subject) bool {
+func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
 	log.Printf("Sending subject request to: %s....", peerID)
+	_ = subjectHash
 
 	// create message data
 	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.context.Host, uuid.New().String(), false),

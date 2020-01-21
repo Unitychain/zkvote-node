@@ -25,9 +25,9 @@ const KEY_SUBJECTS = "subjects"
 // Manager ...
 type Manager struct {
 	*localContext.Context
-	subjProtocol   *pro.SubjectProtocol
-	idProtocol     *pro.IdentityProtocol
-	ballotProtocol *pro.BallotProtocol
+	subjProtocol   pro.Protocol
+	idProtocol     pro.Protocol
+	ballotProtocol pro.Protocol
 
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
@@ -180,12 +180,14 @@ func NewManager(
 		chAnnounce:        make(chan bool),
 		zkVerificationKey: zkVerificationKey,
 	}
-	m.subjProtocol = pro.NewProtocol(pro.SubjectProtocolType)
-	m.idProtocol = pro.NewProtocol(pro.IdentityProtocolType)
-	m.ballotProtocol = pro.NewProtocol(pro.BallotProtocolType)
+	m.subjProtocol = pro.NewProtocol(pro.SubjectProtocolType, lc)
+	m.idProtocol = pro.NewProtocol(pro.IdentityProtocolType, lc)
+	m.ballotProtocol = pro.NewProtocol(pro.BallotProtocolType, lc)
 
 	go m.announce()
 	m.loadDB()
+
+	go m.Collect()
 
 	return m, nil
 }
@@ -326,7 +328,7 @@ func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) er
 			return err
 		}
 
-		err = voter.InsertBallot(ba)
+		err = voter.Vote(ba)
 		if nil != err {
 			utils.LogWarningf("Ballot insertion error, %v", err.Error())
 			return err
@@ -385,13 +387,19 @@ func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	return peers, err
 }
 
-func (m *Manager) waitCollect(ch chan []*subject.Subject) {
+func (m *Manager) waitCollect(ch chan []string) {
 	select {
 	case results := <-ch:
-		for _, subject := range results {
-			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+		for _, ret := range results {
+			var s subject.Subject
+			err := json.Unmarshal([]byte(ret), &s)
+			if err != nil {
+				utils.LogWarningf("Unmarshal error, %v", err)
+				continue
+			}
+			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
 		}
-	case <-time.After(1000 * time.Millisecond):
+	case <-time.After(10 * time.Second):
 		utils.LogWarning("Collect timeout")
 	}
 
@@ -400,6 +408,9 @@ func (m *Manager) waitCollect(ch chan []*subject.Subject) {
 
 // Collect ...
 func (m *Manager) Collect() {
+	// out := make(chan *subject.Subject, 100)
+	// defer close(out)
+
 	for {
 		proposers, err := m.FindProposers()
 		if err != nil {
@@ -422,6 +433,13 @@ func (m *Manager) Collect() {
 
 		time.Sleep(10 * time.Second)
 	}
+
+			ch := make(chan []string)
+			m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
+			go m.waitCollect(ch)
+		}
+
+	// return out, nil
 }
 
 //
@@ -445,7 +463,7 @@ func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) error {
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
-	utils.LogDebugf("%v", peers)
+	utils.LogDebugf("SyncIdentityIndex: %v", peers)
 	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
@@ -467,7 +485,7 @@ func (m *Manager) SyncBallotIndex(subjHex subject.HashHex) error {
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetVoteSub().Topic())
-	utils.LogDebugf("%v", peers)
+	utils.LogDebugf("SyncBallotIndex: %v", peers)
 	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
@@ -499,10 +517,10 @@ func (m *Manager) GetProvider(key peer.ID) string {
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
 	// TODO: wait for collect
-	collections, _ := m.Collect()
-	for s := range collections {
-		result = append(result, s)
-	}
+	// collections, _ := m.Collect()
+	// for s := range collections {
+	// 	result = append(result, s)
+	// }
 	for _, s := range m.Cache.GetCreatedSubjects() {
 		result = append(result, s)
 	}

@@ -473,14 +473,14 @@ func (node *Node) handleFindProposers() error {
 }
 
 func (node *Node) handleCollect() error {
-	subjects, err := node.Collect()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// subjects, err := node.Collect()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	for subject := range subjects {
-		fmt.Println("Collect: ", subject)
-	}
+	// for subject := range subjects {
+	// 	fmt.Println("Collect: ", subject)
+	// }
 
 	return nil
 }

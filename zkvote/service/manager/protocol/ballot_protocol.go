@@ -22,12 +22,12 @@ const ballotResponse = "/ballot/res/0.0.1"
 // BallotProtocol type
 type BallotProtocol struct {
 	channels map[subject.HashHex]chan<- []string
-	context  context.Context
+	context  *context.Context
 	requests map[string]*pb.BallotRequest // used to access request data from response handlers
 }
 
 // NewBallotProtocol ...
-func NewBallotProtocol(context context.Context) Protocol {
+func NewBallotProtocol(context *context.Context) Protocol {
 	sp := &BallotProtocol{
 		context:  context,
 		requests: make(map[string]*pb.BallotRequest),

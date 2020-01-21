@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/unitychain/zkvote-node/zkvote/model/ballot"
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
@@ -10,6 +11,7 @@ type Cache struct {
 	collectedSubjects subject.Map
 	createdSubjects   subject.Map
 	ballotMap         map[subject.HashHex]ballot.Map
+	idMap             map[subject.HashHex]identity.Set
 }
 
 // NewCache ...
@@ -17,7 +19,8 @@ func NewCache() (*Cache, error) {
 	return &Cache{
 		collectedSubjects: subject.NewMap(),
 		createdSubjects:   subject.NewMap(),
-		ballotMap: 	make(map[subject.HashHex]ballot.Map),
+		ballotMap:         make(map[subject.HashHex]ballot.Map),
+		idMap:             make(map[subject.HashHex]identity.Set),
 	}, nil
 }
 
@@ -56,11 +59,23 @@ func (c *Cache) GetBallotSet(subHashHex subject.HashHex) ballot.Map {
 	return c.ballotMap[subHashHex]
 }
 
-// InsertBallot .
+// InsertBallotSet .
 func (c *Cache) InsertBallotSet(subHashHex subject.HashHex, ballotMap ballot.Map) {
-	_, ok:=c.ballotMap[subHashHex]
+	_, ok := c.ballotMap[subHashHex]
 	if !ok {
 		c.ballotMap[subHashHex] = ballot.NewMap()
 	}
 	c.ballotMap[subHashHex] = ballotMap
+}
+
+func (c *Cache) InsertIdentitySet(subHashHex subject.HashHex, idSet identity.Set) {
+	_, ok := c.idMap[subHashHex]
+	if !ok {
+		c.idMap[subHashHex] = identity.NewSet()
+	}
+	c.idMap[subHashHex] = idSet
+}
+
+func (c *Cache) GetIdentitySet(subHashHex subject.HashHex) identity.Set {
+	return c.idMap[subHashHex]
 }
