@@ -28,7 +28,7 @@ type BallotProtocol struct {
 
 // NewBallotProtocol ...
 func NewBallotProtocol(context context.Context) Protocol {
-	sp := BallotProtocol{
+	sp := &BallotProtocol{
 		context:  context,
 		requests: make(map[string]*pb.BallotRequest),
 	}
@@ -38,6 +38,7 @@ func NewBallotProtocol(context context.Context) Protocol {
 }
 
 // remote peer requests handler
+
 func (sp *BallotProtocol) onRequest(s network.Stream) {
 
 	// get request data

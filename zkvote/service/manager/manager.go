@@ -385,41 +385,43 @@ func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	return peers, err
 }
 
-// Collect ...
-func (m *Manager) Collect() (<-chan *subject.Subject, error) {
-	out := make(chan *subject.Subject, 100)
-	defer close(out)
-
-	proposers, err := m.FindProposers()
-	if err != nil {
-		fmt.Println(err)
+func (m *Manager) waitCollect(ch chan []*subject.Subject) {
+	select {
+	case results := <-ch:
+		for _, subject := range results {
+			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+		}
+	case <-time.After(1000 * time.Millisecond):
+		utils.LogWarning("Collect timeout")
 	}
 
-	var peerNum int
-	for peer := range proposers {
-		// Ignore self ID
-		if peer.ID == m.Host.ID() {
+	close(ch)
+}
+
+// Collect ...
+func (m *Manager) Collect() {
+	for {
+		proposers, err := m.FindProposers()
+		if err != nil {
+			fmt.Println(err)
 			continue
 		}
-		utils.LogInfof("found peer, %v", peer)
-		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
-		m.subjProtocol.GetCreatedSubjects(peer.ID)
-		peerNum++
-	}
 
-	for i := 0; i < peerNum; i++ {
-		select {
-		case results := <-m.subjectProtocolCh:
-			for _, subject := range results {
-				out <- subject
-				m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+		for peer := range proposers {
+			// Ignore self ID
+			if peer.ID == m.Host.ID() {
+				continue
 			}
-		case <-time.After(1000 * time.Millisecond):
-			utils.LogWarning("Collect timeout")
-		}
-	}
+			utils.LogInfof("found peer, %v", peer)
+			m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 
-	return out, nil
+			ch := make(chan []string)
+			m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
+			go m.waitCollect(ch)
+		}
+
+		time.Sleep(10 * time.Second)
+	}
 }
 
 //
@@ -496,6 +498,7 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
+	// TODO: wait for collect
 	collections, _ := m.Collect()
 	for s := range collections {
 		result = append(result, s)
