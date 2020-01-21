@@ -15,6 +15,7 @@ import (
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	pro "github.com/unitychain/zkvote-node/zkvote/service/manager/protocol"
 	"github.com/unitychain/zkvote-node/zkvote/service/manager/voter"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
@@ -24,9 +25,9 @@ const KEY_SUBJECTS = "subjects"
 // Manager ...
 type Manager struct {
 	*localContext.Context
-	subjProtocol   *SubjectProtocol
-	idProtocol     *IdentityProtocol
-	ballotProtocol *BallotProtocol
+	subjProtocol   *pro.SubjectProtocol
+	idProtocol     *pro.IdentityProtocol
+	ballotProtocol *pro.BallotProtocol
 
 	ps                *pubsub.PubSub
 	dht               *dht.IpfsDHT
@@ -179,9 +180,9 @@ func NewManager(
 		chAnnounce:        make(chan bool),
 		zkVerificationKey: zkVerificationKey,
 	}
-	m.subjProtocol = NewSubjectProtocol(m)
-	m.idProtocol = NewIdentityProtocol(m)
-	m.ballotProtocol = NewBallotProtocol(m)
+	m.subjProtocol = pro.NewProtocol(pro.SubjectProtocolType)
+	m.idProtocol = pro.NewProtocol(pro.IdentityProtocolType)
+	m.ballotProtocol = pro.NewProtocol(pro.BallotProtocolType)
 
 	go m.announce()
 	m.loadDB()
@@ -234,6 +235,7 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 		return err
 	}
 
+	m.Cache.InsertBallotSet(subjHex, m.GetBallotMaps()[subjHex])
 	m.saveSubjectContent(subjHex)
 	return nil
 }
@@ -423,6 +425,17 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 //
 // Synchronizing functions
 //
+
+func (m *Manager) waitIdentityIndex(subjHex subject.HashHex, chIDStrSet chan []string) {
+	idStrSet := <-chIDStrSet
+
+	// CAUTION!
+	// Manager needs to overwrite the whole identity pool
+	// to keep the order of the tree the same
+	m.OverwriteIds(subjHex.String(), idStrSet)
+	close(chIDStrSet)
+}
+
 // TODO: move to voter.go
 // SyncIdentityIndex ...
 func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) error {
@@ -433,9 +446,17 @@ func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) error {
 	utils.LogDebugf("%v", peers)
 	// Request for registry
 	for _, peer := range peers {
-		m.idProtocol.GetIdentityIndexFromPeer(peer, &subjHash)
+		ch := make(chan []string)
+		m.idProtocol.SubmitRequest(peer, &subjHash, ch)
+		go m.waitIdentityIndex(subjHash.Hex(), ch)
 	}
 	return nil
+}
+
+func (m *Manager) waitBallot(subjHex subject.HashHex, chBallotStrSet chan []string) {
+	ballotStrSet := <-chBallotStrSet
+	m.InsertBallots(subjHex.String(), ballotStrSet)
+	close(chBallotStrSet)
 }
 
 // SyncBallotIndex ...
@@ -447,7 +468,9 @@ func (m *Manager) SyncBallotIndex(subjHex subject.HashHex) error {
 	utils.LogDebugf("%v", peers)
 	// Request for registry
 	for _, peer := range peers {
-		m.ballotProtocol.GetBallotIndexFromPeer(peer, &subjHash)
+		ch := make(chan []string)
+		m.ballotProtocol.SubmitRequest(peer, &subjHash, ch)
+		go m.waitBallot(subjHash.Hex(), ch)
 	}
 	return nil
 }
@@ -559,8 +582,8 @@ func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, erro
 }
 
 // GetBallotSet ...
-func (m *Manager) GetBallotSet(subjectHash *subject.Hash) ([]*ba.Ballot, error) {
-	v, ok := m.voters[subjectHash.Hex()]
+func (m *Manager) GetBallotSet(subjectHashHex *subject.HashHex) ([]*ba.Ballot, error) {
+	v, ok := m.voters[*subjectHashHex]
 	if !ok {
 		return nil, fmt.Errorf("voter is not instantiated")
 	}
