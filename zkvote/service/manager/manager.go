@@ -385,6 +385,19 @@ func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	return peers, err
 }
 
+func (m *Manager) waitCollect(ch chan []*subject.Subject) {
+	select {
+	case results := <-ch:
+		for _, subject := range results {
+			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+		}
+	case <-time.After(1000 * time.Millisecond):
+		utils.LogWarning("Collect timeout")
+	}
+
+	close(ch)
+}
+
 // Collect ...
 func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 	out := make(chan *subject.Subject, 100)
@@ -402,18 +415,21 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		}
 		utils.LogInfof("found peer, %v", peer)
 		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
-		m.subjProtocol.GetCreatedSubjects(peer.ID)
+
+		ch := make(chan []*subject.Subject)
+		m.subjProtocol.SubmitRequest(peer.ID, ch)
+		go m.waitCollect(ch)
 	}
 
-	select {
-	case results := <-m.subjectProtocolCh:
-		for _, subject := range results {
-			out <- subject
-			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
-		}
-	case <-time.After(1000 * time.Millisecond):
-		utils.LogWarning("Collect timeout")
-	}
+	// select {
+	// case results := <-m.subjectProtocolCh:
+	// 	for _, subject := range results {
+	// 		out <- subject
+	// 		m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+	// 	}
+	// case <-time.After(1000 * time.Millisecond):
+	// 	utils.LogWarning("Collect timeout")
+	// }
 
 	return out, nil
 }
@@ -492,6 +508,7 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
+	// TODO: wait for collect
 	collections, _ := m.Collect()
 	for s := range collections {
 		result = append(result, s)

@@ -1,5 +1,7 @@
 package protocol
 
+import "github.com/unitychain/zkvote-node/zkvote/model/context"
+
 type ProtocolType int
 
 const (
@@ -8,14 +10,15 @@ const (
 	SubjectProtocolType
 )
 
-func NewProtocol(t ProtocolType) Protocol {
+// NewProtocol .
+func NewProtocol(t ProtocolType, context context.Context) Protocol {
 	switch t {
 	case BallotProtocolType:
-		return NewBallotProtocol()
+		return NewBallotProtocol(context)
 	case IdentityProtocolType:
-		return NewIdentityProtocol()
+		return NewIdentityProtocol(context)
 	case SubjectProtocolType:
-		return NewSubjectProtocol()
+		return NewSubjectProtocol(context)
 	}
 	return nil
 }

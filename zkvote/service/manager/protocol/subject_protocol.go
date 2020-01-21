@@ -10,6 +10,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
+	"github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
@@ -21,23 +22,24 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	manager  *Manager
+	channel  chan<- []*subject.Subject
+	context  context.Context
 	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
 }
 
 // NewSubjectProtocol ...
-func NewSubjectProtocol(m *Manager) *SubjectProtocol {
+func NewSubjectProtocol(context context.Context) Protocol {
 	sp := &SubjectProtocol{
-		manager:  m,
+		context:  context,
 		requests: make(map[string]*pb.SubjectRequest),
 	}
-	m.Host.SetStreamHandler(subjectRequest, sp.onSubjectRequest)
-	m.Host.SetStreamHandler(subjectResponse, sp.onSubjectResponse)
+	sp.context.Host.SetStreamHandler(subjectRequest, sp.onRequest)
+	sp.context.Host.SetStreamHandler(subjectResponse, sp.onResponse)
 	return sp
 }
 
 // remote peer requests handler
-func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
+func (sp *SubjectProtocol) onRequest(s network.Stream) {
 
 	// get request data
 	data := &pb.SubjectRequest{}
@@ -70,13 +72,13 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 
 	// List created subjects
 	subjects := make([]*pb.Subject, 0)
-	for _, s := range sp.manager.Cache.GetCreatedSubjects() {
+	for _, s := range sp.context.Cache.GetCreatedSubjects() {
 		identity := s.GetProposer()
 		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription(), Proposer: identity.String()}
 		subjects = append(subjects, subject)
 	}
-	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Subject response from %s", sp.manager.Host.ID()), Subjects: subjects}
+	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.context.Host, data.Metadata.Id, false),
+		Message: fmt.Sprintf("Subject response from %s", sp.context.Host.ID()), Subjects: subjects}
 	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
 	// 	Message: fmt.Sprintf("Subject response from %s", sp.manager.Host.ID()), Subjects: nil}
 
@@ -91,7 +93,7 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 	// resp.Metadata.Sign = signature
 
 	// send the response
-	ok := SendProtoMessage(sp.manager.Host, s.Conn().RemotePeer(), subjectResponse, resp)
+	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), subjectResponse, resp)
 
 	if ok {
 		log.Printf("Subject response to %s sent.", s.Conn().RemotePeer().String())
@@ -99,7 +101,7 @@ func (sp *SubjectProtocol) onSubjectRequest(s network.Stream) {
 }
 
 // remote ping response handler
-func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
+func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	results := make([]*subject.Subject, 0)
 
 	data := &pb.SubjectResponse{}
@@ -129,7 +131,7 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 	for _, sub := range data.Subjects {
 		identity := identity.NewIdentity(sub.Proposer)
 		subject := subject.NewSubject(sub.Title, sub.Description, identity)
-		subjectMap := sp.manager.Cache.GetCollectedSubjects()
+		subjectMap := sp.context.Cache.GetCollectedSubjects()
 		subjectMap[*subject.HashHex()] = subject
 		results = append(results, subject)
 	}
@@ -144,16 +146,17 @@ func (sp *SubjectProtocol) onSubjectResponse(s network.Stream) {
 		return
 	}
 	log.Printf("Received subject response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
-	sp.manager.subjectProtocolCh <- results
+	sp.channel <- results
+	// sp.manager.subjectProtocolCh <- results
 }
 
-// GetCreatedSubjects ...
-func (sp *SubjectProtocol) GetCreatedSubjects(peerID peer.ID) bool {
+// SubmitRequest ...
+func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, ch chan<- []*subject.Subject) bool {
 	log.Printf("Sending subject request to: %s....", peerID)
 
 	// create message data
-	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.manager.Host, uuid.New().String(), false),
-		Message: fmt.Sprintf("Subject request from %s", sp.manager.Host.ID())}
+	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.context.Host, uuid.New().String(), false),
+		Message: fmt.Sprintf("Subject request from %s", sp.context.Host.ID())}
 
 	// sign the data
 	// signature, err := p.node.signProtoMessage(req)
@@ -165,11 +168,12 @@ func (sp *SubjectProtocol) GetCreatedSubjects(peerID peer.ID) bool {
 	// add the signature to the message
 	// req.Metadata.Sign = signature
 
-	ok := SendProtoMessage(sp.manager.Host, peerID, subjectRequest, req)
+	ok := SendProtoMessage(sp.context.Host, peerID, subjectRequest, req)
 	if !ok {
 		return false
 	}
 
+	sp.channel = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
 	log.Printf("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
