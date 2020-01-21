@@ -1,4 +1,4 @@
-package manager
+package protocol
 
 import (
 	"fmt"

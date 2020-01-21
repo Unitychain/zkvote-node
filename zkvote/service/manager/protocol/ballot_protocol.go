@@ -1,4 +1,4 @@
-package manager
+package protocol
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/unitychain/zkvote-node/zkvote/model/context"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
@@ -20,23 +21,24 @@ const ballotResponse = "/ballot/res/0.0.1"
 
 // BallotProtocol type
 type BallotProtocol struct {
-	manager  *Manager
+	channels map[subject.HashHex]chan<- []string
+	context  context.Context
 	requests map[string]*pb.BallotRequest // used to access request data from response handlers
 }
 
 // NewBallotProtocol ...
-func NewBallotProtocol(m *Manager) *BallotProtocol {
-	sp := &BallotProtocol{
-		manager:  m,
+func NewBallotProtocol(context context.Context) Protocol {
+	sp := BallotProtocol{
+		context:  context,
 		requests: make(map[string]*pb.BallotRequest),
 	}
-	m.Host.SetStreamHandler(ballotRequest, sp.onBallotRequest)
-	m.Host.SetStreamHandler(ballotResponse, sp.onBallotResponse)
+	sp.context.Host.SetStreamHandler(ballotRequest, sp.onRequest)
+	sp.context.Host.SetStreamHandler(ballotResponse, sp.onResponse)
 	return sp
 }
 
 // remote peer requests handler
-func (sp *BallotProtocol) onBallotRequest(s network.Stream) {
+func (sp *BallotProtocol) onRequest(s network.Stream) {
 
 	// get request data
 	data := &pb.BallotRequest{}
@@ -57,39 +59,23 @@ func (sp *BallotProtocol) onBallotRequest(s network.Stream) {
 
 	log.Printf("Received ballot request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
-	// valid := p.node.authenticateMessage(data, data.Metadata)
-
-	// if !valid {
-	// 	log.Println("Failed to authenticate message")
-	// 	return
-	// }
-
 	// generate response message
 	log.Printf("Sending ballot response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List ballot index
 	subjectHash := subject.Hash(data.SubjectHash)
 	var ballotSet []string
-	set, err := sp.manager.GetBallotSet(&subjectHash)
+	set := sp.context.Cache.GetBallotSet(subjectHash.Hex())
+	// set, err := sp.manager.GetBallotSet(&subjectHash)
 	for _, h := range set {
 		s, _ := h.JSON()
 		ballotSet = append(ballotSet, s)
 	}
-	resp := &pb.BallotResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
-		Message: fmt.Sprintf("Ballot response from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte(), BallotSet: ballotSet}
-
-	// sign the data
-	// signature, err := p.node.signProtoMessage(resp)
-	// if err != nil {
-	// 	log.Println("failed to sign response")
-	// 	return
-	// }
-
-	// add the signature to the message
-	// resp.Metadata.Sign = signature
+	resp := &pb.BallotResponse{Metadata: NewMetadata(sp.context.Host, data.Metadata.Id, false),
+		Message: fmt.Sprintf("Ballot response from %s", sp.context.Host.ID()), SubjectHash: subjectHash.Byte(), BallotSet: ballotSet}
 
 	// send the response
-	ok := SendProtoMessage(sp.manager.Host, s.Conn().RemotePeer(), ballotResponse, resp)
+	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), ballotResponse, resp)
 
 	if ok {
 		log.Printf("Ballot response to %s sent.", s.Conn().RemotePeer().String())
@@ -97,7 +83,7 @@ func (sp *BallotProtocol) onBallotRequest(s network.Stream) {
 }
 
 // remote ping response handler
-func (sp *BallotProtocol) onBallotResponse(s network.Stream) {
+func (sp *BallotProtocol) onResponse(s network.Stream) {
 	utils.LogDebug("onBallotResponse")
 	data := &pb.BallotResponse{}
 	buf, err := ioutil.ReadAll(s)
@@ -115,20 +101,15 @@ func (sp *BallotProtocol) onBallotResponse(s network.Stream) {
 		return
 	}
 
-	// valid := p.node.authenticateMessage(data, data.Metadata)
+	subjectHash := subject.Hash(data.SubjectHash)
+	ch := sp.channels[subjectHash.Hex()]
+	ch <- data.BallotSet
 
-	// if !valid {
-	// 	log.Println("Failed to authenticate message")
+	// err = sp.manager.InsertBallots(subjectHash.Hex().String(), data.BallotSet)
+	// if err != nil {
+	// 	utils.LogErrorf("Failed to insert ballotSet, %v", err.Error())
 	// 	return
 	// }
-
-	// Store all ballotHash
-	subjectHash := subject.Hash(data.SubjectHash)
-	err = sp.manager.InsertBallots(subjectHash.Hex().String(), data.BallotSet)
-	if err != nil {
-		utils.LogErrorf("Failed to insert ballotSet, %v", err.Error())
-		return
-	}
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]
@@ -143,31 +124,23 @@ func (sp *BallotProtocol) onBallotResponse(s network.Stream) {
 	log.Printf("Received ballot response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
 }
 
-// GetBallotIndexFromPeer ...
-func (sp *BallotProtocol) GetBallotIndexFromPeer(peerID peer.ID, subjectHash *subject.Hash) bool {
+// SubmitRequest ...
+func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
 	log.Printf("Sending ballot request to: %s....", peerID)
 
 	// create message data
-	req := &pb.BallotRequest{Metadata: NewMetadata(sp.manager.Host, uuid.New().String(), false),
-		Message: fmt.Sprintf("Ballot request from %s", sp.manager.Host.ID()), SubjectHash: subjectHash.Byte()}
+	req := &pb.BallotRequest{Metadata: NewMetadata(sp.context.Host, uuid.New().String(), false),
+		Message: fmt.Sprintf("Ballot request from %s", sp.context.Host.ID()), SubjectHash: subjectHash.Byte()}
 
-	// sign the data
-	// signature, err := p.node.signProtoMessage(req)
-	// if err != nil {
-	// 	log.Println("failed to sign pb data")
-	// 	return false
-	// }
-
-	// add the signature to the message
-	// req.Metadata.Sign = signature
-
-	ok := SendProtoMessage(sp.manager.Host, peerID, ballotRequest, req)
+	ok := SendProtoMessage(sp.context.Host, peerID, ballotRequest, req)
 	if !ok {
 		return false
 	}
 
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
+
+	sp.channels[subjectHash.Hex()] = ch
 	log.Printf("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }
