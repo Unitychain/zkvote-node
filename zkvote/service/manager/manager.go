@@ -393,6 +393,7 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		fmt.Println(err)
 	}
 
+	var peerNum int
 	for peer := range proposers {
 		// Ignore self ID
 		if peer.ID == m.Host.ID() {
@@ -401,16 +402,19 @@ func (m *Manager) Collect() (<-chan *subject.Subject, error) {
 		utils.LogInfof("found peer, %v", peer)
 		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 		m.subjProtocol.GetCreatedSubjects(peer.ID)
+		peerNum++
 	}
 
-	select {
-	case results := <-m.subjectProtocolCh:
-		for _, subject := range results {
-			out <- subject
-			m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+	for i := 0; i < peerNum; i++ {
+		select {
+		case results := <-m.subjectProtocolCh:
+			for _, subject := range results {
+				out <- subject
+				m.Cache.InsertColletedSubject(*subject.HashHex(), subject)
+			}
+		case <-time.After(1000 * time.Millisecond):
+			utils.LogWarning("Collect timeout")
 		}
-	case <-time.After(1000 * time.Millisecond):
-		utils.LogWarning("Collect timeout")
 	}
 
 	return out, nil
