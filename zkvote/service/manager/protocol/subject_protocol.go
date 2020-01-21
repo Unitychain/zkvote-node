@@ -24,7 +24,7 @@ const subjectResponse = "/subject/res/0.0.1"
 
 // SubjectProtocol type
 type SubjectProtocol struct {
-	channel  chan<- []string
+	channel  map[peer.ID]chan<- []string
 	context  *context.Context
 	requests map[string]*pb.SubjectRequest // used to access request data from response handlers
 }
@@ -35,6 +35,7 @@ func NewSubjectProtocol(context *context.Context) Protocol {
 		context:  context,
 		requests: make(map[string]*pb.SubjectRequest),
 	}
+	sp.channel = make(map[peer.ID]chan<- []string)
 	sp.context.Host.SetStreamHandler(subjectRequest, sp.onRequest)
 	sp.context.Host.SetStreamHandler(subjectResponse, sp.onResponse)
 	return sp
@@ -134,8 +135,8 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	for _, sub := range data.Subjects {
 		identity := identity.NewIdentity(sub.Proposer)
 		subject := subject.NewSubject(sub.Title, sub.Description, identity)
-		subjectMap := sp.context.Cache.GetCollectedSubjects()
-		subjectMap[*subject.HashHex()] = subject
+		// subjectMap := sp.context.Cache.GetCollectedSubjects()
+		// subjectMap[*subject.HashHex()] = subject
 
 		b, err := json.Marshal(subject)
 		if err != nil {
@@ -159,7 +160,7 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	// if err != nil {
 	// 	utils.LogWarningf("Marshal failed, %v", err)
 	// }
-	sp.channel <- results
+	sp.channel[s.Conn().RemotePeer()] <- results
 	// sp.manager.subjectProtocolCh <- results
 }
 
@@ -187,7 +188,7 @@ func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Ha
 		return false
 	}
 
-	sp.channel = ch
+	sp.channel[peerID] = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
 	log.Printf("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)

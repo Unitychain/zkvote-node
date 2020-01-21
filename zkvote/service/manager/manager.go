@@ -359,17 +359,29 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	if sub, ok := collectedSubs[subjHex]; ok {
 		_, err := m.newAVoter(sub, identityCommitmentHex)
 		// Sync identities
-		_ = m.SyncIdentityIndex(subjHex)
+		ch, _ := m.SyncIdentityIndex(subjHex)
 
 		// Sync ballots
-		_ = m.SyncBallotIndex(subjHex)
+		go func(ch chan bool) {
+			select {
+			case <-ch:
+			case <-time.After(10 * time.Second):
+				utils.LogWarning("wait for sync Idnetity Index timeout")
+			}
+			finished, err := m.SyncBallotIndex(subjHex)
+			if err != nil {
+				utils.LogWarningf("SyncBallotIndex error, %v", err)
+			}
+
+			<-finished
+			m.saveSubjects()
+			m.saveSubjectContent(subjHex)
+		}(ch)
 
 		// TODO: return sync error
 		return err
 	}
 
-	m.saveSubjects()
-	m.saveSubjectContent(subjHex)
 	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
 }
 
@@ -451,7 +463,7 @@ func (m *Manager) Collect() {
 // Synchronizing functions
 //
 
-func (m *Manager) waitIdentityIndex(subjHex subject.HashHex, chIDStrSet chan []string) {
+func (m *Manager) waitIdentityIndex(subjHex subject.HashHex, chIDStrSet chan []string, finished chan bool) {
 	idStrSet := <-chIDStrSet
 
 	// CAUTION!
@@ -459,45 +471,53 @@ func (m *Manager) waitIdentityIndex(subjHex subject.HashHex, chIDStrSet chan []s
 	// to keep the order of the tree the same
 	m.OverwriteIds(subjHex.String(), idStrSet)
 	close(chIDStrSet)
+	finished <- true
 }
 
 // TODO: move to voter.go
 // SyncIdentityIndex ...
-func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) error {
+func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) (chan bool, error) {
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
 	utils.LogDebugf("SyncIdentityIndex: %v", peers)
+	chPeers := make(chan bool, len(peers))
 	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
 		m.idProtocol.SubmitRequest(peer, &subjHash, ch)
-		go m.waitIdentityIndex(subjHash.Hex(), ch)
+		go m.waitIdentityIndex(subjHash.Hex(), ch, chPeers)
 	}
-	return nil
+	return chPeers, nil
 }
 
-func (m *Manager) waitBallot(subjHex subject.HashHex, chBallotStrSet chan []string) {
+func (m *Manager) waitBallot(subjHex subject.HashHex, chBallotStrSet chan []string, finished chan bool) {
 	ballotStrSet := <-chBallotStrSet
-	m.InsertBallots(subjHex.String(), ballotStrSet)
+	for _, bs := range ballotStrSet {
+		m.Vote(subjHex.String(), bs)
+	}
+	// m.InsertBallots(subjHex.String(), ballotStrSet)
+	finished <- true
 	close(chBallotStrSet)
 }
 
 // SyncBallotIndex ...
-func (m *Manager) SyncBallotIndex(subjHex subject.HashHex) error {
+func (m *Manager) SyncBallotIndex(subjHex subject.HashHex) (chan bool, error) {
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetVoteSub().Topic())
 	utils.LogDebugf("SyncBallotIndex: %v", peers)
+
+	chPeers := make(chan bool, len(peers))
 	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
 		m.ballotProtocol.SubmitRequest(peer, &subjHash, ch)
-		go m.waitBallot(subjHash.Hex(), ch)
+		go m.waitBallot(subjHash.Hex(), ch, chPeers)
 	}
-	return nil
+	return chPeers, nil
 }
 
 // SetProvider ...
@@ -523,9 +543,9 @@ func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
 	// TODO: wait for collect
 	// collections, _ := m.Collect()
-	// for s := range collections {
-	// 	result = append(result, s)
-	// }
+	for _, s := range m.Cache.GetCollectedSubjects() {
+		result = append(result, s)
+	}
 	for _, s := range m.Cache.GetCreatedSubjects() {
 		result = append(result, s)
 	}
