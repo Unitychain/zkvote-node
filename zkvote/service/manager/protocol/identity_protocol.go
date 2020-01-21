@@ -21,7 +21,7 @@ const identityResponse = "/identity/res/0.0.1"
 
 // IdentityProtocol type
 type IdentityProtocol struct {
-	channels map[subject.HashHex]chan<- []string
+	channels map[peer.ID]map[subject.HashHex]chan<- []string
 	context  *context.Context
 	requests map[string]*pb.IdentityRequest // used to access request data from response handlers
 }
@@ -32,6 +32,7 @@ func NewIdentityProtocol(context *context.Context) Protocol {
 		context:  context,
 		requests: make(map[string]*pb.IdentityRequest),
 	}
+	sp.channels = make(map[peer.ID]map[subject.HashHex]chan<- []string)
 	sp.context.Host.SetStreamHandler(identityRequest, sp.onRequest)
 	sp.context.Host.SetStreamHandler(identityResponse, sp.onResponse)
 	return sp
@@ -103,7 +104,7 @@ func (sp *IdentityProtocol) onResponse(s network.Stream) {
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
 
-	ch := sp.channels[subjectHash.Hex()]
+	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.IdentitySet
 
 	// err = sp.manager.OverwriteIds(subjectHash.Hex().String(), data.IdentitySet)
@@ -148,7 +149,11 @@ func (sp *IdentityProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.H
 		return false
 	}
 
-	sp.channels[subjectHash.Hex()] = ch
+	chPeer := sp.channels[peerID]
+	if chPeer == nil {
+		sp.channels[peerID] = make(map[subject.HashHex]chan<- []string)
+	}
+	sp.channels[peerID][subjectHash.Hex()] = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
 	log.Printf("Identity request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)

@@ -21,7 +21,7 @@ const ballotResponse = "/ballot/res/0.0.1"
 
 // BallotProtocol type
 type BallotProtocol struct {
-	channels map[subject.HashHex]chan<- []string
+	channels map[peer.ID]map[subject.HashHex]chan<- []string
 	context  *context.Context
 	requests map[string]*pb.BallotRequest // used to access request data from response handlers
 }
@@ -32,6 +32,7 @@ func NewBallotProtocol(context *context.Context) Protocol {
 		context:  context,
 		requests: make(map[string]*pb.BallotRequest),
 	}
+	sp.channels = make(map[peer.ID]map[subject.HashHex]chan<- []string)
 	sp.context.Host.SetStreamHandler(ballotRequest, sp.onRequest)
 	sp.context.Host.SetStreamHandler(ballotResponse, sp.onResponse)
 	return sp
@@ -103,7 +104,7 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 	}
 
 	subjectHash := subject.Hash(data.SubjectHash)
-	ch := sp.channels[subjectHash.Hex()]
+	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.BallotSet
 
 	// err = sp.manager.InsertBallots(subjectHash.Hex().String(), data.BallotSet)
@@ -141,7 +142,11 @@ func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Has
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
 
-	sp.channels[subjectHash.Hex()] = ch
+	chPeer := sp.channels[peerID]
+	if chPeer == nil {
+		sp.channels[peerID] = make(map[subject.HashHex]chan<- []string)
+	}
+	sp.channels[peerID][subjectHash.Hex()] = ch
 	log.Printf("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }
