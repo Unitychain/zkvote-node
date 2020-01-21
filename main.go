@@ -37,7 +37,7 @@ func main() {
 	*path = "data/" + *path
 
 	relay := false
-	bucketSize := 1
+	bucketSize := 5
 	ds, err := levelds.NewDatastore(*path, nil)
 	if err != nil {
 		panic(err)
