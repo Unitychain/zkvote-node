@@ -79,15 +79,6 @@ func NewVoter(
 // Identities
 //
 
-func (v *Voter) insertCache() {
-	set := v.GetAllIds()
-	idSet := id.NewSet()
-	for _, v := range set {
-		idSet[*id.NewIdentity(v.Hex())] = v.Hex()
-	}
-	v.Cache.InsertIdentitySet(v.subject.Hash().Hex(), idSet)
-}
-
 // InsertIdentity .
 func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 	if nil == identity {
@@ -100,7 +91,6 @@ func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 	}
 
 	v.Cache.InsertIdentity(v.subject.Hash().Hex(), *identity)
-	// v.insertCache()
 
 	return i, nil
 }
@@ -117,8 +107,6 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 		idElements[i] = e.PathElement()
 		v.Cache.InsertIdentity(v.subject.Hash().Hex(), *e)
 	}
-
-	// v.insertCache()
 
 	return v.OverwriteIdElements(idElements)
 }

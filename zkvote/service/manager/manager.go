@@ -357,10 +357,8 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
-		// _, ok := m.voters[subjHex]
-		// if !ok {
 		_, err := m.newAVoter(sub, identityCommitmentHex)
-		// }
+
 		// Sync identities
 		ch, _ := m.SyncIdentityIndex(subjHex)
 
@@ -396,7 +394,6 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 // FindProposers ...
 func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	// defer cancel()
 	_ = cancel
 
 	peers, err := m.discovery.FindPeers(ctx, "subjects")
@@ -417,9 +414,7 @@ func (m *Manager) waitCollect(ch chan []string) {
 				utils.LogWarningf("Unmarshal error, %v", err)
 				continue
 			}
-			// if !m.Cache.IsExistedSubject(*s.HashHex()) {
 			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
-			// }
 		}
 	case <-time.After(10 * time.Second):
 		utils.LogWarning("Collect timeout")
@@ -431,7 +426,7 @@ func (m *Manager) waitCollect(ch chan []string) {
 func (m *Manager) runCollect() {
 	for {
 		m.Collect()
-		time.Sleep(30 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
