@@ -3,7 +3,6 @@ package protocol
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
@@ -47,7 +46,7 @@ func (sp *BallotProtocol) onRequest(s network.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 	s.Close()
@@ -55,14 +54,14 @@ func (sp *BallotProtocol) onRequest(s network.Stream) {
 	// unmarshal it
 	proto.Unmarshal(buf, data)
 	if err != nil {
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 
-	log.Printf("Received ballot request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
+	utils.LogInfof("Received ballot request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
 	// generate response message
-	log.Printf("Sending ballot response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
+	utils.LogInfof("Sending ballot response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List ballot index
 	subjectHash := subject.Hash(data.SubjectHash)
@@ -78,20 +77,19 @@ func (sp *BallotProtocol) onRequest(s network.Stream) {
 
 	// send the response
 	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), ballotResponse, resp)
-
 	if ok {
-		log.Printf("Ballot response to %s sent.", s.Conn().RemotePeer().String())
+		utils.LogInfof("Ballot response to %s sent.", s.Conn().RemotePeer().String())
 	}
 }
 
 // remote ping response handler
 func (sp *BallotProtocol) onResponse(s network.Stream) {
-	utils.LogDebug("onBallotResponse")
+
 	data := &pb.BallotResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 	s.Close()
@@ -99,7 +97,7 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 	// unmarshal it
 	proto.Unmarshal(buf, data)
 	if err != nil {
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 
@@ -107,28 +105,22 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.BallotSet
 
-	// err = sp.manager.InsertBallots(subjectHash.Hex().String(), data.BallotSet)
-	// if err != nil {
-	// 	utils.LogErrorf("Failed to insert ballotSet, %v", err.Error())
-	// 	return
-	// }
-
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]
 	if ok {
 		// remove request from map as we have processed it here
 		delete(sp.requests, data.Metadata.Id)
 	} else {
-		log.Println("Failed to locate request data boject for response")
+		utils.LogWarning("Failed to locate request data boject for response")
 		return
 	}
 
-	log.Printf("Received ballot response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
+	utils.LogInfof("Received ballot response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
 }
 
 // SubmitRequest ...
 func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
-	log.Printf("Sending ballot request to: %s....", peerID)
+	utils.LogInfof("Sending ballot request to: %s....", peerID)
 
 	// create message data
 	req := &pb.BallotRequest{Metadata: NewMetadata(sp.context.Host, uuid.New().String(), false),
@@ -147,6 +139,6 @@ func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Has
 		sp.channels[peerID] = make(map[subject.HashHex]chan<- []string)
 	}
 	sp.channels[peerID][subjectHash.Hex()] = ch
-	log.Printf("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
+	utils.LogInfof("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }

@@ -734,5 +734,8 @@ func (m *Manager) announce() error {
 	// TODO: Check if the voter is ready for announcement
 	utils.LogInfo("Announce")
 	_, err := m.discovery.Advertise(ctx, "subjects", routingDiscovery.TTL(10*time.Minute))
+	if err != nil {
+		utils.LogWarningf("Advertise error, %v", err)
+	}
 	return err
 }
