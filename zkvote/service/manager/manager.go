@@ -358,7 +358,13 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
-		_, err := m.newAVoter(sub, identityCommitmentHex)
+		// _, err := m.newAVoter(sub, identityCommitmentHex)
+		voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
+		if nil != err {
+			utils.LogErrorf("Join, new voter error: %v", err)
+			return err
+		}
+		m.voters[*sub.HashHex()] = voter
 
 		// Sync identities
 		ch, _ := m.SyncIdentities(subjHex)
