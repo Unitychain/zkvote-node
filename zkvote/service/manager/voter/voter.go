@@ -99,7 +99,8 @@ func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 		return -1, err
 	}
 
-	v.insertCache()
+	v.Cache.InsertIdentity(v.subject.Hash().Hex(), *identity)
+	// v.insertCache()
 
 	return i, nil
 }
@@ -114,9 +115,10 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 	idElements := make([]*id.IdPathElement, len(identities))
 	for i, e := range identities {
 		idElements[i] = e.PathElement()
+		v.Cache.InsertIdentity(v.subject.Hash().Hex(), *e)
 	}
 
-	v.insertCache()
+	// v.insertCache()
 
 	return v.OverwriteIdElements(idElements)
 }
@@ -143,6 +145,7 @@ func (v *Voter) Vote(ballot *ba.Ballot) error {
 		return err
 	}
 
+	v.Context.Cache.InsertBallot(v.subject.Hash().Hex(), ballot)
 	// Store ballot
 	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
 }

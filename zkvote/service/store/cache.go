@@ -68,12 +68,29 @@ func (c *Cache) InsertBallotSet(subHashHex subject.HashHex, ballotMap ballot.Map
 	c.ballotMap[subHashHex] = ballotMap
 }
 
+// InsertBallot .
+func (c *Cache) InsertBallot(subHashHex subject.HashHex, ba *ballot.Ballot) {
+	_, ok := c.ballotMap[subHashHex]
+	if !ok {
+		c.ballotMap[subHashHex] = ballot.NewMap()
+	}
+	c.ballotMap[subHashHex][ba.NullifierHashHex()] = ba
+}
+
 func (c *Cache) InsertIdentitySet(subHashHex subject.HashHex, idSet identity.Set) {
 	_, ok := c.idMap[subHashHex]
 	if !ok {
 		c.idMap[subHashHex] = identity.NewSet()
 	}
 	c.idMap[subHashHex] = idSet
+}
+
+func (c *Cache) InsertIdentity(subHashHex subject.HashHex, id identity.Identity) {
+	_, ok := c.idMap[subHashHex]
+	if !ok {
+		c.idMap[subHashHex] = identity.NewSet()
+	}
+	c.idMap[subHashHex][id] = id.String()
 }
 
 func (c *Cache) GetIdentitySet(subHashHex subject.HashHex) identity.Set {

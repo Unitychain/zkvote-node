@@ -187,7 +187,7 @@ func NewManager(
 	go m.announce()
 	m.loadDB()
 
-	go m.Collect()
+	go m.runCollect()
 
 	return m, nil
 }
@@ -237,7 +237,7 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 		return err
 	}
 
-	m.Cache.InsertBallotSet(subjHex, m.GetBallotMaps()[subjHex])
+	// m.Cache.InsertBallotSet(subjHex, m.GetBallotMaps()[subjHex])
 	m.saveSubjectContent(subjHex)
 	return nil
 }
@@ -357,7 +357,10 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 
 	collectedSubs := m.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
+		// _, ok := m.voters[subjHex]
+		// if !ok {
 		_, err := m.newAVoter(sub, identityCommitmentHex)
+		// }
 		// Sync identities
 		ch, _ := m.SyncIdentityIndex(subjHex)
 
@@ -371,6 +374,11 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 			finished, err := m.SyncBallotIndex(subjHex)
 			if err != nil {
 				utils.LogErrorf("SyncBallotIndex error, %v", err)
+			}
+
+			err = m.InsertIdentity(sub.HashHex().String(), identityCommitmentHex)
+			if err != nil {
+				utils.LogErrorf("insert ID when join error, %v", err)
 			}
 
 			<-finished
@@ -418,30 +426,34 @@ func (m *Manager) waitCollect(ch chan []string) {
 	close(ch)
 }
 
+func (m *Manager) runCollect() {
+	for {
+		m.Collect()
+		time.Sleep(30 * time.Second)
+	}
+}
+
 // Collect ...
 func (m *Manager) Collect() {
-	for {
-		proposers, err := m.FindProposers()
-		if err != nil {
-			utils.LogErrorf("find peers error, %v", err)
+
+	proposers, err := m.FindProposers()
+	if err != nil {
+		utils.LogErrorf("find peers error, %v", err)
+		// continue
+	}
+
+	// TODO: store peers
+	for peer := range proposers {
+		// Ignore self ID
+		if peer.ID == m.Host.ID() {
 			continue
 		}
+		utils.LogInfof("found peer, %v", peer)
+		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
 
-		// TODO: store peers
-		for peer := range proposers {
-			// Ignore self ID
-			if peer.ID == m.Host.ID() {
-				continue
-			}
-			utils.LogInfof("found peer, %v", peer)
-			m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
-
-			ch := make(chan []string)
-			m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
-			go m.waitCollect(ch)
-		}
-
-		time.Sleep(10 * time.Second)
+		ch := make(chan []string)
+		m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
+		go m.waitCollect(ch)
 	}
 }
 
@@ -467,7 +479,8 @@ func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) (chan bool, error) 
 	subjHash := subjHex.Hash()
 
 	// Get peers from the same pubsub
-	peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
+	strTopic := voter.GetIdentitySub().Topic()
+	peers := m.ps.ListPeers(strTopic)
 	utils.LogDebugf("SyncIdentityIndex peers: %v", peers)
 
 	chPeers := make(chan bool, len(peers))
@@ -527,12 +540,14 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
+	// m.Collect()
 	for _, s := range m.Cache.GetCollectedSubjects() {
 		result = append(result, s)
 	}
 	for _, s := range m.Cache.GetCreatedSubjects() {
 		result = append(result, s)
 	}
+
 	return result, nil
 }
 

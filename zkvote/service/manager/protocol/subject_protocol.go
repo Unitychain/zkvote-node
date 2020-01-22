@@ -63,7 +63,7 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 	utils.LogInfof("Received subject request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
 	// generate response message
-	utils.LogInfof("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
+	// utils.LogInfof("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List created subjects
 	subjects := make([]*pb.Subject, 0)
@@ -78,7 +78,7 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 	// send the response
 	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), subjectResponse, resp)
 	if ok {
-		utils.LogInfof("Subject response to %s sent.", s.Conn().RemotePeer().String())
+		utils.LogInfof("Subject response(%v) to %s sent.", subjects, s.Conn().RemotePeer().String())
 	}
 }
 
@@ -149,6 +149,6 @@ func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Ha
 	sp.channel[peerID] = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
-	utils.LogInfof("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
+	// utils.LogInfof("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }

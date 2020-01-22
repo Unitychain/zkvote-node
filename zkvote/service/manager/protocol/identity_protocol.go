@@ -60,7 +60,7 @@ func (sp *IdentityProtocol) onRequest(s network.Stream) {
 	utils.LogInfof("Received identity request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
 	// generate response message
-	utils.LogInfof("Sending identity response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
+	// utils.LogInfof("Sending identity response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List identity index
 	subjectHash := subject.Hash(data.SubjectHash)
@@ -77,7 +77,7 @@ func (sp *IdentityProtocol) onRequest(s network.Stream) {
 	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), identityResponse, resp)
 
 	if ok {
-		utils.LogInfof("Identity response to %s sent.", s.Conn().RemotePeer().String())
+		utils.LogInfof("Identity response(%v) to %s sent.", set, s.Conn().RemotePeer().String())
 	}
 }
 
@@ -140,6 +140,6 @@ func (sp *IdentityProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.H
 	sp.channels[peerID][subjectHash.Hex()] = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
-	utils.LogInfof("Identity request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
+	// utils.LogInfof("Identity request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }

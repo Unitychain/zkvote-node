@@ -61,7 +61,7 @@ func (sp *BallotProtocol) onRequest(s network.Stream) {
 	utils.LogInfof("Received ballot request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
 	// generate response message
-	utils.LogInfof("Sending ballot response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
+	// utils.LogInfof("Sending ballot response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List ballot index
 	subjectHash := subject.Hash(data.SubjectHash)
@@ -78,7 +78,7 @@ func (sp *BallotProtocol) onRequest(s network.Stream) {
 	// send the response
 	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), ballotResponse, resp)
 	if ok {
-		utils.LogInfof("Ballot response to %s sent.", s.Conn().RemotePeer().String())
+		utils.LogInfof("Ballot response(%v) to %s sent.", ballotSet, s.Conn().RemotePeer().String())
 	}
 }
 
@@ -140,6 +140,6 @@ func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Has
 		sp.channels[peerID] = make(map[subject.HashHex]chan<- []string)
 	}
 	sp.channels[peerID][subjectHash.Hex()] = ch
-	utils.LogInfof("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
+	// utils.LogInfof("Ballot request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }
