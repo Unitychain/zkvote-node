@@ -446,11 +446,6 @@ func (m *Manager) Collect() {
 		time.Sleep(10 * time.Second)
 	}
 
-			ch := make(chan []string)
-			m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
-			go m.waitCollect(ch)
-		}
-
 	// return out, nil
 }
 
