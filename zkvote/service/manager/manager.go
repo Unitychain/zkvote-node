@@ -417,7 +417,9 @@ func (m *Manager) waitCollect(ch chan []string) {
 				utils.LogWarningf("Unmarshal error, %v", err)
 				continue
 			}
+			// if !m.Cache.IsExistedSubject(*s.HashHex()) {
 			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
+			// }
 		}
 	case <-time.After(10 * time.Second):
 		utils.LogWarning("Collect timeout")
@@ -570,13 +572,13 @@ func (m *Manager) GetCollectedSubjects() subject.Map {
 }
 
 // GetCollectedSubjectTitles ...
-func (m *Manager) GetCollectedSubjectTitles() []string {
-	titles := make([]string, 0)
-	for _, s := range m.Cache.GetCollectedSubjects() {
-		titles = append(titles, s.GetTitle())
-	}
-	return titles
-}
+// func (m *Manager) GetCollectedSubjectTitles() []string {
+// 	titles := make([]string, 0)
+// 	for _, s := range m.Cache.GetCollectedSubjects() {
+// 		titles = append(titles, s.GetTitle())
+// 	}
+// 	return titles
+// }
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {

@@ -1,9 +1,12 @@
 package store
 
 import (
+	"strings"
+
 	"github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // Cache ...
@@ -24,8 +27,25 @@ func NewCache() (*Cache, error) {
 	}, nil
 }
 
+func (c *Cache) IsExistedSubject(sHex subject.HashHex) bool {
+	for k := range c.collectedSubjects {
+		if strings.EqualFold(utils.Remove0x(k.String()), utils.Remove0x(sHex.String())) {
+			return true
+		}
+	}
+	for k := range c.createdSubjects {
+		if strings.EqualFold(utils.Remove0x(k.String()), utils.Remove0x(sHex.String())) {
+			return true
+		}
+	}
+	return false
+}
+
 // InsertColletedSubject .
 func (c *Cache) InsertColletedSubject(k subject.HashHex, v *subject.Subject) {
+	if c.IsExistedSubject(k) {
+		return
+	}
 	c.collectedSubjects[k] = v
 }
 
