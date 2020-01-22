@@ -119,6 +119,7 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 }
 
 // SubmitRequest ...
+// TODO: use callback instead of channel
 func (sp *BallotProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
 	utils.LogInfof("Sending ballot request to: %s....", peerID)
 

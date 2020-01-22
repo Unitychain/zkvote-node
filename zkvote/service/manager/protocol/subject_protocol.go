@@ -132,6 +132,7 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 }
 
 // SubmitRequest ...
+// TODO: use callback instead of channel
 func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
 	utils.LogInfof("Sending subject request to: %s....", peerID)
 	_ = subjectHash

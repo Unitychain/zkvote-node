@@ -199,13 +199,13 @@ func NewManager(
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
 	utils.LogInfof("Propose, title:%v, desc:%v, id:%v", title, description, identityCommitmentHex)
 	if 0 == len(title) || 0 == len(identityCommitmentHex) {
-		utils.LogWarningf("Invalid input")
+		utils.LogErrorf("Invalid input")
 		return fmt.Errorf("invalid input")
 	}
 
 	voter, err := m.propose(title, description, identityCommitmentHex)
 	if err != nil {
-		utils.LogWarningf("Propose error, %v", err)
+		utils.LogErrorf("Propose error, %v", err)
 		return err
 	}
 	m.saveSubjects()
@@ -217,14 +217,14 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 func (m *Manager) Vote(subjectHashHex string, proof string) error {
 	utils.LogInfof("Vote, subject:%s", subjectHashHex)
 	if 0 == len(subjectHashHex) || 0 == len(proof) {
-		utils.LogWarningf("Invalid input")
+		utils.LogErrorf("Invalid input")
 		return fmt.Errorf("invalid input")
 	}
 
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
 	voter, ok := m.voters[subjHex]
 	if !ok {
-		utils.LogWarningf("Can't get voter with subject hash: %v", subjHex)
+		utils.LogErrorf("Can't get voter with subject hash: %v", subjHex)
 		return fmt.Errorf("Can't get voter with subject hash: %v", subjHex)
 	}
 	ballot, err := ba.NewBallot(proof)
@@ -247,7 +247,7 @@ func (m *Manager) Open(subjectHashHex string) (int, int) {
 	utils.LogInfof("Open subject: %v", subjectHashHex)
 	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
 	if !ok {
-		utils.LogWarningf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+		utils.LogErrorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
 		return -1, -1
 	}
 	return voter.Open()
@@ -281,13 +281,13 @@ func (m *Manager) InsertIdentity(subjectHashHex string, identityCommitmentHex st
 func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) error {
 	utils.LogInfof("overwrite, subject:%s", subjectHashHex)
 	if 0 == len(subjectHashHex) || 0 == len(identitySet) {
-		utils.LogWarningf("Invalid input")
+		utils.LogErrorf("Invalid input")
 		return fmt.Errorf("invalid input")
 	}
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
 	voter, ok := m.voters[subjHex]
 	if !ok {
-		utils.LogWarningf("can't get voter with subject hash:%v", subjHex)
+		utils.LogErrorf("can't get voter with subject hash:%v", subjHex)
 		return fmt.Errorf("can't get voter with subject hash:%v", subjHex)
 	}
 
@@ -299,7 +299,7 @@ func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) erro
 
 	_, err := voter.OverwriteIds(set)
 	if nil != err {
-		utils.LogWarningf("identity pool registration error, %v", err.Error())
+		utils.LogErrorf("identity pool registration error, %v", err.Error())
 		return err
 	}
 
@@ -312,7 +312,7 @@ func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) erro
 func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) error {
 	utils.LogInfof("Insert, subject:%s, ballot: %v", subjectHashHex, ballotStrSet)
 	if 0 == len(subjectHashHex) || 0 == len(ballotStrSet) {
-		utils.LogWarningf("Invalid input")
+		utils.LogErrorf("Invalid input")
 		return fmt.Errorf("invalid input")
 	}
 
@@ -344,7 +344,7 @@ func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) er
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
 	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
 	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
-		utils.LogWarningf("Invalid input")
+		utils.LogErrorf("Invalid input")
 		return fmt.Errorf("invalid input")
 	}
 
@@ -370,7 +370,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 			}
 			finished, err := m.SyncBallotIndex(subjHex)
 			if err != nil {
-				utils.LogWarningf("SyncBallotIndex error, %v", err)
+				utils.LogErrorf("SyncBallotIndex error, %v", err)
 			}
 
 			<-finished
@@ -420,16 +420,14 @@ func (m *Manager) waitCollect(ch chan []string) {
 
 // Collect ...
 func (m *Manager) Collect() {
-	// out := make(chan *subject.Subject, 100)
-	// defer close(out)
-
 	for {
 		proposers, err := m.FindProposers()
 		if err != nil {
-			fmt.Println(err)
+			utils.LogErrorf("find peers error, %v", err)
 			continue
 		}
 
+		// TODO: store peers
 		for peer := range proposers {
 			// Ignore self ID
 			if peer.ID == m.Host.ID() {
@@ -445,8 +443,6 @@ func (m *Manager) Collect() {
 
 		time.Sleep(10 * time.Second)
 	}
-
-	// return out, nil
 }
 
 //
@@ -469,11 +465,12 @@ func (m *Manager) waitIdentityIndex(subjHex subject.HashHex, chIDStrSet chan []s
 func (m *Manager) SyncIdentityIndex(subjHex subject.HashHex) (chan bool, error) {
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
+
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetIdentitySub().Topic())
-	utils.LogDebugf("SyncIdentityIndex: %v", peers)
+	utils.LogDebugf("SyncIdentityIndex peers: %v", peers)
+
 	chPeers := make(chan bool, len(peers))
-	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
 		m.idProtocol.SubmitRequest(peer, &subjHash, ch)
@@ -498,10 +495,9 @@ func (m *Manager) SyncBallotIndex(subjHex subject.HashHex) (chan bool, error) {
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetVoteSub().Topic())
-	utils.LogDebugf("SyncBallotIndex: %v", peers)
+	utils.LogDebugf("SyncBallotIndex peers: %v", peers)
 
 	chPeers := make(chan bool, len(peers))
-	// Request for registry
 	for _, peer := range peers {
 		ch := make(chan []string)
 		m.ballotProtocol.SubmitRequest(peer, &subjHash, ch)
@@ -531,8 +527,6 @@ func (m *Manager) GetProvider(key peer.ID) string {
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	result := make([]*subject.Subject, 0)
-	// TODO: wait for collect
-	// collections, _ := m.Collect()
 	for _, s := range m.Cache.GetCollectedSubjects() {
 		result = append(result, s)
 	}

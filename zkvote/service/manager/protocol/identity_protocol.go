@@ -120,6 +120,7 @@ func (sp *IdentityProtocol) onResponse(s network.Stream) {
 }
 
 // SubmitRequest ...
+// TODO: use callback instead of channel
 func (sp *IdentityProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
 	utils.LogInfof("Sending identity request to: %s....", peerID)
 
