@@ -153,7 +153,7 @@ func (m *Manager) loadDB() {
 					utils.LogWarningf("get json ballot error, %v", err)
 					break
 				}
-				m.Vote(utils.Remove0x(obj.Subject.HashHex().String()), jStr)
+				m.silentVote(utils.Remove0x(obj.Subject.HashHex().String()), jStr, true)
 			}
 		}()
 	}
@@ -213,8 +213,7 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	return nil
 }
 
-// Vote ...
-func (m *Manager) Vote(subjectHashHex string, proof string) error {
+func (m *Manager) silentVote(subjectHashHex string, proof string, silent bool) error {
 	utils.LogInfof("Vote, subject:%s", subjectHashHex)
 	if 0 == len(subjectHashHex) || 0 == len(proof) {
 		utils.LogErrorf("Invalid input")
@@ -232,14 +231,18 @@ func (m *Manager) Vote(subjectHashHex string, proof string) error {
 		return err
 	}
 
-	err = voter.Vote(ballot)
+	err = voter.Vote(ballot, silent)
 	if err != nil {
 		return err
 	}
 
-	// m.Cache.InsertBallotSet(subjHex, m.GetBallotMaps()[subjHex])
 	m.saveSubjectContent(subjHex)
 	return nil
+}
+
+// Vote ...
+func (m *Manager) Vote(subjectHashHex string, proof string) error {
+	return m.silentVote(subjectHashHex, proof, false)
 }
 
 // Open ...
@@ -309,33 +312,33 @@ func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) erro
 
 // InsertBallot ...
 // TODO: Integrate with InsertIdentity
-func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) error {
-	utils.LogInfof("Insert, subject:%s, ballot: %v", subjectHashHex, ballotStrSet)
-	if 0 == len(subjectHashHex) || 0 == len(ballotStrSet) {
-		utils.LogErrorf("Invalid input")
-		return fmt.Errorf("invalid input")
-	}
+// func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) error {
+// 	utils.LogInfof("Insert, subject:%s, ballot: %v", subjectHashHex, ballotStrSet)
+// 	if 0 == len(subjectHashHex) || 0 == len(ballotStrSet) {
+// 		utils.LogErrorf("Invalid input")
+// 		return fmt.Errorf("invalid input")
+// 	}
 
-	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
-	if !ok {
-		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
-	}
+// 	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+// 	if !ok {
+// 		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+// 	}
 
-	for _, bs := range ballotStrSet {
-		ba, err := ba.NewBallot(bs)
-		if nil != err {
-			utils.LogWarningf("Ballot insertion error, %v", err.Error())
-			return err
-		}
+// 	for _, bs := range ballotStrSet {
+// 		ba, err := ba.NewBallot(bs)
+// 		if nil != err {
+// 			utils.LogWarningf("Ballot insertion error, %v", err.Error())
+// 			return err
+// 		}
 
-		err = voter.Vote(ba)
-		if nil != err {
-			utils.LogWarningf("Ballot insertion error, %v", err.Error())
-			return err
-		}
-	}
-	return nil
-}
+// 		err = voter.Vote(ba)
+// 		if nil != err {
+// 			utils.LogWarningf("Ballot insertion error, %v", err.Error())
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 //
 // pubsub function
@@ -501,7 +504,7 @@ func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []str
 	select {
 	case ballotStrSet := <-chBallotStrSet:
 		for _, bs := range ballotStrSet {
-			m.Vote(subjHex.String(), bs)
+			m.silentVote(subjHex.String(), bs, true)
 		}
 	case <-time.After(10 * time.Second):
 		utils.LogWarning("waitBallots timeout")

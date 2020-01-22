@@ -115,7 +115,7 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 // Proposal
 //
 // Vote .
-func (v *Voter) Vote(ballot *ba.Ballot) error {
+func (v *Voter) Vote(ballot *ba.Ballot, silent bool) error {
 	bytes, err := ballot.Byte()
 	if err != nil {
 		return err
@@ -134,8 +134,11 @@ func (v *Voter) Vote(ballot *ba.Ballot) error {
 	}
 
 	v.Context.Cache.InsertBallot(v.subject.Hash().Hex(), ballot)
-	// Store ballot
-	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
+
+	if !silent {
+		return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
+	}
+	return nil
 }
 
 // Open .
