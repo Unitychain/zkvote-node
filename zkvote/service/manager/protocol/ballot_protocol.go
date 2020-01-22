@@ -101,6 +101,12 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 		return
 	}
 
+	defer func() {
+		err := recover()
+		if err != nil {
+			utils.LogWarningf("panic: %v", err)
+		}
+	}()
 	subjectHash := subject.Hash(data.SubjectHash)
 	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.BallotSet
