@@ -102,6 +102,12 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 		return
 	}
 
+	defer func() {
+		err := recover()
+		if err != nil {
+			utils.LogWarningf("panic: %v", err)
+		}
+	}()
 	// Store all topics]
 	var results []string
 	for _, sub := range data.Subjects {
