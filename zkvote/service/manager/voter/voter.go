@@ -22,7 +22,6 @@ type Voter struct {
 	subject *subject.Subject
 	*IdentityPool
 	*Proposal
-	ballotMap       ba.Map
 	verificationKey string
 
 	*localContext.Context
@@ -62,7 +61,6 @@ func NewVoter(
 		Proposal:        p,
 		ps:              ps,
 		Context:         lc,
-		ballotMap:       ba.NewMap(),
 		verificationKey: verificationKey,
 		subscription: &voterSubscription{
 			idSub:   identitySub,
@@ -91,17 +89,10 @@ func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 	if nil != err {
 		return -1, err
 	}
+
+	v.Cache.InsertIdentity(v.subject.Hash().Hex(), *identity)
+
 	return i, nil
-}
-
-// InsertBallot ...
-func (v *Voter) InsertBallot(ballot *ba.Ballot) error {
-	if nil == ballot {
-		return fmt.Errorf("invalid input")
-	}
-
-	v.ballotMap[ballot.NullifierHashHex()] = ballot
-	return nil
 }
 
 // Join .
@@ -114,7 +105,9 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 	idElements := make([]*id.IdPathElement, len(identities))
 	for i, e := range identities {
 		idElements[i] = e.PathElement()
+		v.Cache.InsertIdentity(v.subject.Hash().Hex(), *e)
 	}
+
 	return v.OverwriteIdElements(idElements)
 }
 
@@ -122,7 +115,7 @@ func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
 // Proposal
 //
 // Vote .
-func (v *Voter) Vote(ballot *ba.Ballot) error {
+func (v *Voter) Vote(ballot *ba.Ballot, silent bool) error {
 	bytes, err := ballot.Byte()
 	if err != nil {
 		return err
@@ -140,10 +133,12 @@ func (v *Voter) Vote(ballot *ba.Ballot) error {
 		return err
 	}
 
-	// Store ballot
-	v.ballotMap[ballot.NullifierHashHex()] = ballot
+	v.Context.Cache.InsertBallot(v.subject.Hash().Hex(), ballot)
 
-	return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
+	if !silent {
+		return v.ps.Publish(v.GetVoteSub().Topic(), bytes)
+	}
+	return nil
 }
 
 // Open .
@@ -182,7 +177,7 @@ func (v *Voter) GetVoteSub() *pubsub.Subscription {
 
 // GetBallotMap ...
 func (v *Voter) GetBallotMap() ba.Map {
-	return v.ballotMap
+	return v.GetBallots()
 }
 
 // GetAllIdentities .
@@ -265,8 +260,5 @@ func (v *Voter) voteSubHandler(sub *pubsub.Subscription) {
 			utils.LogWarningf("voteSubHandler: %v", err.Error())
 			continue
 		}
-
-		// Store ballot
-		v.ballotMap[ballot.NullifierHashHex()] = ballot
 	}
 }
