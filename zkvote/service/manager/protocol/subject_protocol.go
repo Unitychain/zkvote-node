@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -49,7 +48,7 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 	s.Close()
@@ -57,21 +56,14 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 	// unmarshal it
 	proto.Unmarshal(buf, data)
 	if err != nil {
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 
-	log.Printf("Received subject request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
-
-	// valid := p.node.authenticateMessage(data, data.Metadata)
-
-	// if !valid {
-	// 	log.Println("Failed to authenticate message")
-	// 	return
-	// }
+	utils.LogInfof("Received subject request from %s. Message: %s", s.Conn().RemotePeer(), data.Message)
 
 	// generate response message
-	log.Printf("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
+	utils.LogInfof("Sending subject response to %s. Message id: %s...", s.Conn().RemotePeer(), data.Metadata.Id)
 
 	// List created subjects
 	subjects := make([]*pb.Subject, 0)
@@ -82,24 +74,11 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 	}
 	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.context.Host, data.Metadata.Id, false),
 		Message: fmt.Sprintf("Subject response from %s", sp.context.Host.ID()), Subjects: subjects}
-	// resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.manager.Host, data.Metadata.Id, false),
-	// 	Message: fmt.Sprintf("Subject response from %s", sp.manager.Host.ID()), Subjects: nil}
-
-	// sign the data
-	// signature, err := p.node.signProtoMessage(resp)
-	// if err != nil {
-	// 	log.Println("failed to sign response")
-	// 	return
-	// }
-
-	// add the signature to the message
-	// resp.Metadata.Sign = signature
 
 	// send the response
 	ok := SendProtoMessage(sp.context.Host, s.Conn().RemotePeer(), subjectResponse, resp)
-
 	if ok {
-		log.Printf("Subject response to %s sent.", s.Conn().RemotePeer().String())
+		utils.LogInfof("Subject response to %s sent.", s.Conn().RemotePeer().String())
 	}
 }
 
@@ -111,7 +90,7 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
 	s.Close()
@@ -119,16 +98,9 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	// unmarshal it
 	proto.Unmarshal(buf, data)
 	if err != nil {
-		log.Println(err)
+		utils.LogErrorf("%v", err)
 		return
 	}
-
-	// valid := p.node.authenticateMessage(data, data.Metadata)
-
-	// if !valid {
-	// 	log.Println("Failed to authenticate message")
-	// 	return
-	// }
 
 	// Store all topics]
 	var results []string
@@ -144,6 +116,7 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 		}
 		results = append(results, string(b))
 	}
+	sp.channel[s.Conn().RemotePeer()] <- results
 
 	// locate request data and remove it if found
 	_, ok := sp.requests[data.Metadata.Id]
@@ -151,37 +124,21 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 		// remove request from map as we have processed it here
 		delete(sp.requests, data.Metadata.Id)
 	} else {
-		log.Println("Failed to locate request data boject for response")
+		utils.LogWarning("Failed to locate request data boject for response")
 		return
 	}
-	log.Printf("Received subject response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
+	utils.LogInfof("Received subject response from %s. Message id:%s. Message: %s.", s.Conn().RemotePeer(), data.Metadata.Id, data.Message)
 
-	// b, err := json.Marshal(results)
-	// if err != nil {
-	// 	utils.LogWarningf("Marshal failed, %v", err)
-	// }
-	sp.channel[s.Conn().RemotePeer()] <- results
-	// sp.manager.subjectProtocolCh <- results
 }
 
 // SubmitRequest ...
 func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Hash, ch chan<- []string) bool {
-	log.Printf("Sending subject request to: %s....", peerID)
+	utils.LogInfof("Sending subject request to: %s....", peerID)
 	_ = subjectHash
 
 	// create message data
 	req := &pb.SubjectRequest{Metadata: NewMetadata(sp.context.Host, uuid.New().String(), false),
 		Message: fmt.Sprintf("Subject request from %s", sp.context.Host.ID())}
-
-	// sign the data
-	// signature, err := p.node.signProtoMessage(req)
-	// if err != nil {
-	// 	log.Println("failed to sign pb data")
-	// 	return false
-	// }
-
-	// add the signature to the message
-	// req.Metadata.Sign = signature
 
 	ok := SendProtoMessage(sp.context.Host, peerID, subjectRequest, req)
 	if !ok {
@@ -191,6 +148,6 @@ func (sp *SubjectProtocol) SubmitRequest(peerID peer.ID, subjectHash *subject.Ha
 	sp.channel[peerID] = ch
 	// store ref request so response handler has access to it
 	sp.requests[req.Metadata.Id] = req
-	log.Printf("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
+	utils.LogInfof("Subject request to: %s was sent. Message Id: %s, Message: %s", peerID, req.Metadata.Id, req.Message)
 	return true
 }
