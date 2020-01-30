@@ -1,84 +1,12 @@
 package manager
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/service/manager/voter"
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
-
-// Join an existing subject
-func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
-	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
-	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
-		utils.LogErrorf("Invalid input")
-		return fmt.Errorf("invalid input")
-	}
-
-	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-
-	// No need to new a voter if the subjec is created by itself
-	createdSubs := m.Cache.GetCreatedSubjects()
-	if _, ok := createdSubs[subjHex]; ok {
-		return m.InsertIdentity(subjectHashHex, identityCommitmentHex)
-	}
-
-	collectedSubs := m.Cache.GetCollectedSubjects()
-	if sub, ok := collectedSubs[subjHex]; ok {
-		// _, err := m.newAVoter(sub, identityCommitmentHex)
-		voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
-		if nil != err {
-			utils.LogErrorf("Join, new voter error: %v", err)
-			return err
-		}
-		m.voters[*sub.HashHex()] = voter
-
-		// Sync identities
-		ch, _ := m.SyncIdentities(subjHex)
-
-		// Sync ballots
-		go func(ch chan bool) {
-			<-ch
-
-			finished, err := m.SyncBallots(subjHex)
-			if err != nil {
-				utils.LogErrorf("SyncBallotIndex error, %v", err)
-			}
-
-			err = m.InsertIdentity(sub.HashHex().String(), identityCommitmentHex)
-			if err != nil {
-				utils.LogErrorf("insert ID when join error, %v", err)
-			}
-
-			<-finished
-			m.saveSubjects()
-			m.saveSubjectContent(subjHex)
-		}(ch)
-
-		// TODO: return sync error
-		return err
-	}
-
-	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
-}
-
-// FindProposers ...
-func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	_ = cancel
-
-	peers, err := m.discovery.FindPeers(ctx, "subjects")
-	if err != nil {
-		return nil, err
-	}
-
-	return peers, err
-}
 
 func (m *Manager) syncSubjectWorker() {
 	for {

@@ -34,7 +34,7 @@ func NewIdentityPoolWithTreeLevel(treeLevel uint8) (*IdentityPool, error) {
 // InsertIdc : register id
 func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 	c := idCommitment.Content()
-	idx, err := i.tree.Insert(&c)
+	idx, err := i.tree.Insert(c)
 	if err != nil {
 		return -1, err
 	}
@@ -82,7 +82,7 @@ func (i *IdentityPool) OverwriteIdElements(commitmentSet []*IdPathElement) (int,
 // Update : update id
 func (i *IdentityPool) Update(index uint, oldIDCommitment, newIDCommitment *IdPathElement) error {
 	old, new := oldIDCommitment.Content(), newIDCommitment.Content()
-	err := i.tree.Update(index, &old, &new)
+	err := i.tree.Update(index, old, new)
 	if err != nil {
 		return err
 	}

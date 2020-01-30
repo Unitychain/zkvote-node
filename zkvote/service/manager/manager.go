@@ -111,26 +111,7 @@ func (m *Manager) Open(subjectHashHex string) (int, int) {
 
 // InsertIdentity ...
 func (m *Manager) InsertIdentity(subjectHashHex string, identityCommitmentHex string) error {
-	utils.LogInfof("Insert, subject:%s, id:%v", subjectHashHex, identityCommitmentHex)
-	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
-		utils.LogWarningf("Invalid input")
-		return fmt.Errorf("invalid input")
-	}
-
-	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
-	if !ok {
-		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
-	}
-
-	_, err := voter.InsertIdentity(id.NewIdentity(identityCommitmentHex))
-	if nil != err {
-		utils.LogWarningf("identity pool registration error, %v", err.Error())
-		return err
-	}
-
-	m.saveSubjectContent(subject.HashHex(subjectHashHex))
-	return nil
-
+	return m.insertIdentity(subjectHashHex, identityCommitmentHex, true)
 }
 
 // OverwriteIdentities ...
@@ -161,6 +142,74 @@ func (m *Manager) OverwriteIdentities(subjectHashHex string, identitySet []strin
 
 	m.saveSubjectContent(subjHex)
 	return nil
+}
+
+// Join an existing subject
+func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
+	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
+	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
+		utils.LogErrorf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
+
+	// No need to new a voter if the subjec is created by itself
+	createdSubs := m.Cache.GetCreatedSubjects()
+	if _, ok := createdSubs[subjHex]; ok {
+		return m.InsertIdentity(subjectHashHex, identityCommitmentHex)
+	}
+
+	collectedSubs := m.Cache.GetCollectedSubjects()
+	if sub, ok := collectedSubs[subjHex]; ok {
+		_, err := m.initAVoter(sub, identityCommitmentHex, false)
+		// voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
+		if nil != err {
+			utils.LogErrorf("Join, init voter error: %v", err)
+			return err
+		}
+		// m.voters[*sub.HashHex()] = voter
+
+		// Sync identities
+		ch, _ := m.SyncIdentities(subjHex)
+
+		// Sync ballots
+		go func(ch chan bool) {
+			<-ch
+
+			finished, err := m.SyncBallots(subjHex)
+			if err != nil {
+				utils.LogErrorf("SyncBallotIndex error, %v", err)
+			}
+
+			err = m.insertIdentity(sub.HashHex().String(), identityCommitmentHex, true)
+			if err != nil {
+				utils.LogErrorf("insert ID when join error, %v", err)
+			}
+
+			<-finished
+			m.saveSubjects()
+			m.saveSubjectContent(subjHex)
+		}(ch)
+
+		// TODO: return sync error
+		return err
+	}
+
+	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
+}
+
+// FindProposers ...
+func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	_ = cancel
+
+	peers, err := m.discovery.FindPeers(ctx, "subjects")
+	if err != nil {
+		return nil, err
+	}
+
+	return peers, err
 }
 
 // SetProvider ...
@@ -273,7 +322,7 @@ func (m *Manager) propose(title string, description string, identityCommitmentHe
 		return nil, fmt.Errorf("subject already existed")
 	}
 
-	voter, err := m.newAVoter(subject, identityCommitmentHex)
+	voter, err := m.initAVoter(subject, identityCommitmentHex, true)
 	if nil != err {
 		return nil, err
 	}
@@ -311,9 +360,31 @@ func (m *Manager) silentVote(subjectHashHex string, proof string, silent bool) e
 	return nil
 }
 
-func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {
+func (m *Manager) insertIdentity(subjectHashHex string, identityCommitmentHex string, publish bool) error {
+	utils.LogInfof("Insert, subject:%s, id:%v", subjectHashHex, identityCommitmentHex)
+	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
+		utils.LogWarningf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
+	if !ok {
+		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
+	}
+
+	_, err := voter.InsertIdentity(id.NewIdentity(identityCommitmentHex), publish)
+	if nil != err {
+		utils.LogWarningf("identity pool registration error, %v", err.Error())
+		return err
+	}
+
+	m.saveSubjectContent(subject.HashHex(subjectHashHex))
+	return nil
+}
+
+func (m *Manager) initAVoter(sub *subject.Subject, idc string, publish bool) (*voter.Voter, error) {
 	// New a voter including proposal/id tree
-	utils.LogInfo("New voter")
+	utils.LogDebug("New a voter")
 	voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
 	if nil != err {
 		return nil, err
@@ -322,13 +393,7 @@ func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, err
 	utils.LogInfof("Register, subject:%s, id:%v", sub.HashHex().String(), idc)
 	identity := id.NewIdentity(idc)
 	// Insert idenitty to identity pool
-	_, err = voter.InsertIdentity(identity)
-	if nil != err {
-		return nil, err
-	}
-
-	// Publish identity to other pubsub peers
-	err = voter.Join(identity)
+	_, err = voter.InsertIdentity(identity, publish)
 	if nil != err {
 		return nil, err
 	}

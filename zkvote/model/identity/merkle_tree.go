@@ -106,11 +106,11 @@ func NewMerkleTree(levels uint8) (*MerkleTree, error) {
 }
 
 // Insert : insert into to the merkle tree
-func (m *MerkleTree) Insert(value *TreeContent) (int, error) {
-	if value == nil {
-		return -1, fmt.Errorf("invalid input value")
-	}
-	if m.IsExisted(value) {
+func (m *MerkleTree) Insert(value TreeContent) (int, error) {
+	// if value == nil {
+	// 	return -1, fmt.Errorf("invalid input value")
+	// }
+	if m.IsExisted(&value) {
 		return -1, fmt.Errorf("value existed, %v", value)
 	}
 
@@ -129,15 +129,15 @@ func (m *MerkleTree) Insert(value *TreeContent) (int, error) {
 }
 
 // Update : update a leaf of this merkle tree
-func (m *MerkleTree) Update(index uint, oldValue, newValue *TreeContent) error {
+func (m *MerkleTree) Update(index uint, oldValue, newValue TreeContent) error {
 
-	if b, _ := oldValue.Equals(*newValue); b {
+	if b, _ := oldValue.Equals(newValue); b {
 		return fmt.Errorf("old and new value are the same")
 	}
-	if !m.IsExisted(oldValue) {
+	if !m.IsExisted(&oldValue) {
 		return fmt.Errorf("old value not existed, %v", oldValue)
 	}
-	if eq, _ := m.content[index].Equals(*oldValue); !eq {
+	if eq, _ := m.content[index].Equals(oldValue); !eq {
 		// utils.LogErrorf("value of the index is not matched old value.")
 		return fmt.Errorf("value of the index is not matched old value")
 	}
@@ -240,7 +240,7 @@ func (m *MerkleTree) GetAllContent() []*TreeContent {
 	lenWithContent := len(m.mapContent)
 	ids := make([]*TreeContent, lenWithContent)
 	for i := 0; i < lenWithContent; i++ {
-		ids[i] = &TreeContent{m.content[i].(*TreeContent).x}
+		ids[i] = &TreeContent{m.content[i].(TreeContent).x}
 	}
 	return ids
 }
@@ -273,7 +273,7 @@ func (m *MerkleTree) Len() int {
 // Internal functions
 //
 
-func (m *MerkleTree) addContent(idx uint, value *TreeContent) {
+func (m *MerkleTree) addContent(idx uint, value TreeContent) {
 	m.content[idx] = value
 	m.mapContent[value] = idx
 }

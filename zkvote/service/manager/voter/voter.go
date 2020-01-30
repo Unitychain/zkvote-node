@@ -80,7 +80,7 @@ func NewVoter(
 //
 
 // InsertIdentity .
-func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
+func (v *Voter) InsertIdentity(identity *id.Identity, publish bool) (int, error) {
 	if nil == identity {
 		return -1, fmt.Errorf("invalid input")
 	}
@@ -92,13 +92,17 @@ func (v *Voter) InsertIdentity(identity *id.Identity) (int, error) {
 
 	v.Cache.InsertIdentity(v.subject.Hash().Hex(), *identity)
 
+	if publish {
+		return i, v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
+	}
+
 	return i, nil
 }
 
 // Join .
-func (v *Voter) Join(identity *id.Identity) error {
-	return v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
-}
+// func (v *Voter) Join(identity *id.Identity) error {
+// 	return v.ps.Publish(v.GetIdentitySub().Topic(), identity.Byte())
+// }
 
 // OverwriteIds .
 func (v *Voter) OverwriteIds(identities []*id.Identity) (int, error) {
@@ -220,7 +224,7 @@ func (v *Voter) identitySubHandler(subjectHash *subject.Hash, subscription *pubs
 		}
 
 		// TODO: Implement consensus for insert
-		_, err = v.InsertIdentity(identity)
+		_, err = v.InsertIdentity(identity, false)
 		if nil != err {
 			utils.LogWarningf("Insert id from pubsub error, %v", err.Error())
 			continue
