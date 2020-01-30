@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -38,125 +37,6 @@ type Manager struct {
 	chAnnounce        chan bool
 
 	zkVerificationKey string
-}
-
-type storeObject struct {
-	Subject   subject.Subject `json:"subject"`
-	Ids       []id.Identity   `json:"ids"`
-	BallotMap ba.Map          `json:"ballots"`
-}
-
-func (m *Manager) save(key string, v interface{}) error {
-	jsonStr, err := json.Marshal(v)
-	if err != nil {
-		utils.LogErrorf("Marshal error %v", err.Error())
-		return err
-	}
-	// utils.LogDebugf("save, key: %v, value:%v", key, string(jsonStr))
-	err = m.Store.PutLocal(key, string(jsonStr))
-	if err != nil {
-		utils.LogErrorf("Put local db error, %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func (m *Manager) saveSubjects() error {
-	subs := make([]subject.HashHex, len(m.voters))
-	i := 0
-	for k := range m.voters {
-		subs[i] = k
-		i++
-	}
-
-	return m.save(KEY_SUBJECTS, subs)
-}
-
-func (m *Manager) saveSubjectContent(subHex subject.HashHex) error {
-	voter, ok := m.voters[subHex]
-	if !ok {
-		return fmt.Errorf("Can't get voter with subject hash: %v", subHex)
-	}
-	ids := voter.GetAllIdentities()
-	ballotMap := voter.GetBallotMap()
-	subj := voter.GetSubject()
-
-	s := &storeObject{
-		Subject:   *subj,
-		Ids:       ids,
-		BallotMap: ballotMap,
-	}
-	return m.save(subHex.Hash().Hex().String(), s)
-}
-
-func (m *Manager) loadSubjects() ([]subject.HashHex, error) {
-	value, err := m.Store.GetLocal(KEY_SUBJECTS)
-	if err != nil {
-		utils.LogErrorf("Get local db error, %v", err)
-		return nil, err
-	}
-
-	var subs []subject.HashHex
-	err = json.Unmarshal([]byte(value), &subs)
-	if err != nil {
-		utils.LogErrorf("unmarshal subjects error, %v", err)
-	}
-
-	utils.LogDebugf("loaded subjects hex: %v", subs)
-	return subs, err
-}
-
-func (m *Manager) loadSubjectContent(subHex subject.HashHex) (*storeObject, error) {
-
-	utils.LogDebugf("load subject: %s", subHex.String())
-	value, err := m.Store.GetLocal(subHex.Hash().Hex().String())
-	if err != nil {
-		utils.LogErrorf("Get local db error, %v", err)
-		return nil, err
-	}
-
-	var obj storeObject
-	err = json.Unmarshal([]byte(value), &obj)
-	if err != nil {
-		utils.LogErrorf("unmarshal content of subject error, %v", err)
-		return nil, err
-	}
-	return &obj, nil
-}
-
-func (m *Manager) loadDB() {
-	subsHex, _ := m.loadSubjects()
-	for _, s := range subsHex {
-		if 0 == len(s.String()) {
-			continue
-		}
-
-		obj, err := m.loadSubjectContent(s)
-		if err != nil {
-			continue
-		}
-
-		m.propose(obj.Subject.GetTitle(), obj.Subject.GetDescription(), obj.Subject.GetProposer().String())
-
-		for _, id := range obj.Ids {
-			if id.Equal(obj.Subject.GetProposer()) {
-				continue
-			}
-			m.InsertIdentity(utils.Remove0x(obj.Subject.HashHex().String()), id.String())
-		}
-
-		go func() {
-			for _, b := range obj.BallotMap {
-				jStr, err := b.JSON()
-				if err != nil {
-					utils.LogWarningf("get json ballot error, %v", err)
-					break
-				}
-				m.silentVote(utils.Remove0x(obj.Subject.HashHex().String()), jStr, true)
-			}
-		}()
-	}
 }
 
 // NewManager ...
@@ -210,33 +90,6 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 	}
 	m.saveSubjects()
 	m.saveSubjectContent(*voter.GetSubject().HashHex())
-	return nil
-}
-
-func (m *Manager) silentVote(subjectHashHex string, proof string, silent bool) error {
-	utils.LogInfof("Vote, subject:%s", subjectHashHex)
-	if 0 == len(subjectHashHex) || 0 == len(proof) {
-		utils.LogErrorf("Invalid input")
-		return fmt.Errorf("invalid input")
-	}
-
-	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-	voter, ok := m.voters[subjHex]
-	if !ok {
-		utils.LogErrorf("Can't get voter with subject hash: %v", subjHex)
-		return fmt.Errorf("Can't get voter with subject hash: %v", subjHex)
-	}
-	ballot, err := ba.NewBallot(proof)
-	if err != nil {
-		return err
-	}
-
-	err = voter.Vote(ballot, silent)
-	if err != nil {
-		return err
-	}
-
-	m.saveSubjectContent(subjHex)
 	return nil
 }
 
@@ -310,227 +163,6 @@ func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) erro
 	return nil
 }
 
-// InsertBallot ...
-// TODO: Integrate with InsertIdentity
-// func (m *Manager) InsertBallots(subjectHashHex string, ballotStrSet []string) error {
-// 	utils.LogInfof("Insert, subject:%s, ballot: %v", subjectHashHex, ballotStrSet)
-// 	if 0 == len(subjectHashHex) || 0 == len(ballotStrSet) {
-// 		utils.LogErrorf("Invalid input")
-// 		return fmt.Errorf("invalid input")
-// 	}
-
-// 	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
-// 	if !ok {
-// 		return fmt.Errorf("Can't get voter with subject hash: %v", subject.HashHex(utils.Remove0x(subjectHashHex)))
-// 	}
-
-// 	for _, bs := range ballotStrSet {
-// 		ba, err := ba.NewBallot(bs)
-// 		if nil != err {
-// 			utils.LogWarningf("Ballot insertion error, %v", err.Error())
-// 			return err
-// 		}
-
-// 		err = voter.Vote(ba)
-// 		if nil != err {
-// 			utils.LogWarningf("Ballot insertion error, %v", err.Error())
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
-
-//
-// pubsub function
-//
-// Join an existing subject
-func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
-	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
-	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
-		utils.LogErrorf("Invalid input")
-		return fmt.Errorf("invalid input")
-	}
-
-	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
-
-	// No need to new a voter if the subjec is created by itself
-	createdSubs := m.GetCreatedSubjects()
-	if _, ok := createdSubs[subjHex]; ok {
-		return m.InsertIdentity(subjectHashHex, identityCommitmentHex)
-	}
-
-	collectedSubs := m.GetCollectedSubjects()
-	if sub, ok := collectedSubs[subjHex]; ok {
-		// _, err := m.newAVoter(sub, identityCommitmentHex)
-		voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
-		if nil != err {
-			utils.LogErrorf("Join, new voter error: %v", err)
-			return err
-		}
-		m.voters[*sub.HashHex()] = voter
-
-		// Sync identities
-		ch, _ := m.SyncIdentities(subjHex)
-
-		// Sync ballots
-		go func(ch chan bool) {
-			<-ch
-
-			finished, err := m.SyncBallots(subjHex)
-			if err != nil {
-				utils.LogErrorf("SyncBallotIndex error, %v", err)
-			}
-
-			err = m.InsertIdentity(sub.HashHex().String(), identityCommitmentHex)
-			if err != nil {
-				utils.LogErrorf("insert ID when join error, %v", err)
-			}
-
-			<-finished
-			m.saveSubjects()
-			m.saveSubjectContent(subjHex)
-		}(ch)
-
-		// TODO: return sync error
-		return err
-	}
-
-	return fmt.Errorf("Can NOT find subject, %s", subjectHashHex)
-}
-
-// FindProposers ...
-func (m *Manager) FindProposers() (<-chan peer.AddrInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	_ = cancel
-
-	peers, err := m.discovery.FindPeers(ctx, "subjects")
-	if err != nil {
-		return nil, err
-	}
-
-	return peers, err
-}
-
-func (m *Manager) waitSubject(ch chan []string) {
-	select {
-	case results := <-ch:
-		for _, ret := range results {
-			var s subject.Subject
-			err := json.Unmarshal([]byte(ret), &s)
-			if err != nil {
-				utils.LogWarningf("Unmarshal error, %v", err)
-				continue
-			}
-			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
-		}
-	case <-time.After(10 * time.Second):
-		utils.LogWarning("Collect timeout")
-	}
-
-	close(ch)
-}
-
-func (m *Manager) syncSubjectWorker() {
-	for {
-		m.SyncSubjects()
-		time.Sleep(60 * time.Second)
-	}
-}
-
-// SyncSubject ...
-func (m *Manager) SyncSubjects() {
-
-	proposers, err := m.FindProposers()
-	if err != nil {
-		utils.LogErrorf("find peers error, %v", err)
-		return
-	}
-
-	// TODO: store peers
-	for peer := range proposers {
-		// Ignore self ID
-		if peer.ID == m.Host.ID() {
-			continue
-		}
-		utils.LogInfof("found peer, %v", peer)
-		m.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, 24*time.Hour)
-
-		ch := make(chan []string)
-		m.subjProtocol.SubmitRequest(peer.ID, nil, ch)
-		go m.waitSubject(ch)
-	}
-}
-
-//
-// Synchronizing functions
-//
-
-func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []string, finished chan bool) {
-	select {
-	case idStrSet := <-chIDStrSet:
-		// CAUTION!
-		// Manager needs to overwrite the whole identity pool
-		// to keep the order of the tree the same
-		m.OverwriteIds(subjHex.String(), idStrSet)
-	case <-time.After(10 * time.Second):
-		utils.LogWarning("waitIdentities timeout")
-	}
-
-	close(chIDStrSet)
-	finished <- true
-}
-
-// TODO: move to voter.go
-// SyncIdentity ...
-func (m *Manager) SyncIdentities(subjHex subject.HashHex) (chan bool, error) {
-	voter := m.voters[subjHex]
-	subjHash := subjHex.Hash()
-
-	// Get peers from the same pubsub
-	strTopic := voter.GetIdentitySub().Topic()
-	peers := m.ps.ListPeers(strTopic)
-	utils.LogDebugf("SyncIdentityIndex peers: %v", peers)
-
-	chPeers := make(chan bool, len(peers))
-	for _, peer := range peers {
-		ch := make(chan []string)
-		m.idProtocol.SubmitRequest(peer, &subjHash, ch)
-		go m.waitIdentities(subjHash.Hex(), ch, chPeers)
-	}
-	return chPeers, nil
-}
-
-func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []string, finished chan bool) {
-	select {
-	case ballotStrSet := <-chBallotStrSet:
-		for _, bs := range ballotStrSet {
-			m.silentVote(subjHex.String(), bs, true)
-		}
-	case <-time.After(10 * time.Second):
-		utils.LogWarning("waitBallots timeout")
-	}
-
-	finished <- true
-	close(chBallotStrSet)
-}
-
-// SyncBallot ...
-func (m *Manager) SyncBallots(subjHex subject.HashHex) (chan bool, error) {
-	voter := m.voters[subjHex]
-	subjHash := subjHex.Hash()
-	// Get peers from the same pubsub
-	peers := m.ps.ListPeers(voter.GetVoteSub().Topic())
-	utils.LogDebugf("SyncBallotIndex peers: %v", peers)
-
-	chPeers := make(chan bool, len(peers))
-	for _, peer := range peers {
-		ch := make(chan []string)
-		m.ballotProtocol.SubmitRequest(peer, &subjHash, ch)
-		go m.waitBallots(subjHash.Hex(), ch, chPeers)
-	}
-	return chPeers, nil
-}
-
 // SetProvider ...
 func (m *Manager) SetProvider(key peer.ID, value string) {
 	m.providers[key] = value
@@ -580,15 +212,6 @@ func (m *Manager) GetCreatedSubjects() subject.Map {
 func (m *Manager) GetCollectedSubjects() subject.Map {
 	return m.Cache.GetCollectedSubjects()
 }
-
-// GetCollectedSubjectTitles ...
-// func (m *Manager) GetCollectedSubjectTitles() []string {
-// 	titles := make([]string, 0)
-// 	for _, s := range m.Cache.GetCollectedSubjects() {
-// 		titles = append(titles, s.GetTitle())
-// 	}
-// 	return titles
-// }
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
@@ -700,6 +323,33 @@ func (m *Manager) propose(title string, description string, identityCommitmentHe
 	m.Cache.InsertCreatedSubject(*subject.HashHex(), subject)
 
 	return voter, nil
+}
+
+func (m *Manager) silentVote(subjectHashHex string, proof string, silent bool) error {
+	utils.LogInfof("Vote, subject:%s", subjectHashHex)
+	if 0 == len(subjectHashHex) || 0 == len(proof) {
+		utils.LogErrorf("Invalid input")
+		return fmt.Errorf("invalid input")
+	}
+
+	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
+	voter, ok := m.voters[subjHex]
+	if !ok {
+		utils.LogErrorf("Can't get voter with subject hash: %v", subjHex)
+		return fmt.Errorf("Can't get voter with subject hash: %v", subjHex)
+	}
+	ballot, err := ba.NewBallot(proof)
+	if err != nil {
+		return err
+	}
+
+	err = voter.Vote(ballot, silent)
+	if err != nil {
+		return err
+	}
+
+	m.saveSubjectContent(subjHex)
+	return nil
 }
 
 func (m *Manager) newAVoter(sub *subject.Subject, idc string) (*voter.Voter, error) {

@@ -27,7 +27,7 @@ func NewCache() (*Cache, error) {
 	}, nil
 }
 
-func (c *Cache) IsExistedSubject(sHex subject.HashHex) bool {
+func (c *Cache) isExistedSubject(sHex subject.HashHex) bool {
 	for k := range c.collectedSubjects {
 		if strings.EqualFold(utils.Remove0x(k.String()), utils.Remove0x(sHex.String())) {
 			return true
@@ -43,7 +43,7 @@ func (c *Cache) IsExistedSubject(sHex subject.HashHex) bool {
 
 // InsertColletedSubject .
 func (c *Cache) InsertColletedSubject(k subject.HashHex, v *subject.Subject) {
-	if c.IsExistedSubject(k) {
+	if c.isExistedSubject(k) {
 		return
 	}
 	c.collectedSubjects[k] = v
