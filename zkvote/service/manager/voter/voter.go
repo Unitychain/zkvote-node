@@ -188,8 +188,8 @@ func (v *Voter) GetBallotMap() ba.Map {
 func (v *Voter) GetAllIdentities() []id.Identity {
 	ids := v.GetAllIds()
 	hexArray := make([]id.Identity, len(ids))
-	for i, _id := range ids {
-		hexArray[i] = *id.NewIdentity(_id.Hex())
+	for _, _id := range ids {
+		hexArray = append(hexArray, *id.NewIdentity(_id.Hex()))
 	}
 	return hexArray
 }

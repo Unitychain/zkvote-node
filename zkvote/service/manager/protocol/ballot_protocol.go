@@ -107,6 +107,7 @@ func (sp *BallotProtocol) onResponse(s network.Stream) {
 			utils.LogWarningf("panic: %v", err)
 		}
 	}()
+	utils.LogDebugf("response, ballot %v", data.BallotSet)
 	subjectHash := subject.Hash(data.SubjectHash)
 	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.BallotSet

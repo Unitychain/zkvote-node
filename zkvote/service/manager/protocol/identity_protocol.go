@@ -108,7 +108,6 @@ func (sp *IdentityProtocol) onResponse(s network.Stream) {
 	}()
 	// Store all identityHash
 	subjectHash := subject.Hash(data.SubjectHash)
-
 	ch := sp.channels[s.Conn().RemotePeer()][subjectHash.Hex()]
 	ch <- data.IdentitySet
 

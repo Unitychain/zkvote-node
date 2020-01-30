@@ -27,7 +27,7 @@ func (m *Manager) waitSubject(ch chan []string) {
 			}
 			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		utils.LogWarning("Collect timeout")
 	}
 
@@ -63,6 +63,16 @@ func (m *Manager) SyncSubjects() {
 //
 
 func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []string, finished chan bool) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			utils.LogWarningf("PANIC: %v", err)
+		}
+		close(chIDStrSet)
+		m.idLock.Unlock()
+	}()
+
+	m.idLock.Lock()
 	select {
 	case idStrSet := <-chIDStrSet:
 		// CAUTION!
@@ -73,13 +83,13 @@ func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []stri
 		utils.LogWarning("waitIdentities timeout")
 	}
 
-	close(chIDStrSet)
 	finished <- true
 }
 
 // TODO: move to voter.go
 // SyncIdentity ...
 func (m *Manager) SyncIdentities(subjHex subject.HashHex) (chan bool, error) {
+
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
 
@@ -98,6 +108,17 @@ func (m *Manager) SyncIdentities(subjHex subject.HashHex) (chan bool, error) {
 }
 
 func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []string, finished chan bool) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			utils.LogWarningf("PANIC: %v", err)
+		}
+		close(chBallotStrSet)
+		m.ballotLock.Unlock()
+	}()
+
+	m.ballotLock.Lock()
+
 	select {
 	case ballotStrSet := <-chBallotStrSet:
 		for _, bs := range ballotStrSet {
@@ -108,7 +129,6 @@ func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []str
 	}
 
 	finished <- true
-	close(chBallotStrSet)
 }
 
 // SyncBallot ...

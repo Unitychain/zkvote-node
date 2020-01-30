@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/discovery"
@@ -37,6 +38,9 @@ type Manager struct {
 	chAnnounce        chan bool
 
 	zkVerificationKey string
+
+	idLock     sync.Mutex
+	ballotLock sync.Mutex
 }
 
 // NewManager ...
@@ -59,6 +63,8 @@ func NewManager(
 		voters:            make(map[subject.HashHex]*voter.Voter),
 		chAnnounce:        make(chan bool),
 		zkVerificationKey: zkVerificationKey,
+		idLock:            sync.Mutex{},
+		ballotLock:        sync.Mutex{},
 	}
 	m.subjProtocol = pro.NewProtocol(pro.SubjectProtocolType, lc)
 	m.idProtocol = pro.NewProtocol(pro.IdentityProtocolType, lc)
@@ -182,10 +188,10 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 				utils.LogErrorf("SyncBallotIndex error, %v", err)
 			}
 
-			err = m.insertIdentity(sub.HashHex().String(), identityCommitmentHex, true)
-			if err != nil {
-				utils.LogErrorf("insert ID when join error, %v", err)
-			}
+			// err = m.insertIdentity(sub.HashHex().String(), identityCommitmentHex, true)
+			// if err != nil {
+			// 	utils.LogErrorf("insert ID when join error, %v", err)
+			// }
 
 			<-finished
 			m.saveSubjects()
