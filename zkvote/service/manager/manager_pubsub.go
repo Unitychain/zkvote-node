@@ -23,12 +23,12 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	subjHex := subject.HashHex(utils.Remove0x(subjectHashHex))
 
 	// No need to new a voter if the subjec is created by itself
-	createdSubs := m.GetCreatedSubjects()
+	createdSubs := m.Cache.GetCreatedSubjects()
 	if _, ok := createdSubs[subjHex]; ok {
 		return m.InsertIdentity(subjectHashHex, identityCommitmentHex)
 	}
 
-	collectedSubs := m.GetCollectedSubjects()
+	collectedSubs := m.Cache.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
 		// _, err := m.newAVoter(sub, identityCommitmentHex)
 		voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
@@ -140,7 +140,7 @@ func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []stri
 		// CAUTION!
 		// Manager needs to overwrite the whole identity pool
 		// to keep the order of the tree the same
-		m.OverwriteIds(subjHex.String(), idStrSet)
+		m.OverwriteIdentities(subjHex.String(), idStrSet)
 	case <-time.After(10 * time.Second):
 		utils.LogWarning("waitIdentities timeout")
 	}

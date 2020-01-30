@@ -43,7 +43,7 @@ func (i *IdentityPool) InsertIdc(idCommitment *IdPathElement) (int, error) {
 	return idx, nil
 }
 
-// OverwriteIds .
+// OverwriteIdElements .
 // return total len and error
 func (i *IdentityPool) OverwriteIdElements(commitmentSet []*IdPathElement) (int, error) {
 

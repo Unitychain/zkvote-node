@@ -133,8 +133,8 @@ func (m *Manager) InsertIdentity(subjectHashHex string, identityCommitmentHex st
 
 }
 
-// OverwriteIds ...
-func (m *Manager) OverwriteIds(subjectHashHex string, identitySet []string) error {
+// OverwriteIdentities ...
+func (m *Manager) OverwriteIdentities(subjectHashHex string, identitySet []string) error {
 	utils.LogInfof("overwrite, subject:%s", subjectHashHex)
 	if 0 == len(subjectHashHex) || 0 == len(identitySet) {
 		utils.LogErrorf("Invalid input")
@@ -195,23 +195,13 @@ func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 	return result, nil
 }
 
-// GetJoinedSubjectTitles ...
-func (m *Manager) GetJoinedSubjectTitles() []string {
-	topics := m.ps.GetTopics()
-	fmt.Println(topics)
+// // GetJoinedSubjectTitles ...
+// func (m *Manager) GetJoinedSubjectTitles() []string {
+// 	topics := m.ps.GetTopics()
+// 	fmt.Println(topics)
 
-	return topics
-}
-
-// GetCreatedSubjects ...
-func (m *Manager) GetCreatedSubjects() subject.Map {
-	return m.Cache.GetCreatedSubjects()
-}
-
-// GetCollectedSubjects ...
-func (m *Manager) GetCollectedSubjects() subject.Map {
-	return m.Cache.GetCollectedSubjects()
-}
+// 	return topics
+// }
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
@@ -243,37 +233,6 @@ func (m *Manager) GetIdentityPath(
 		hexIDPaths[i] = p.Hex()
 	}
 	return hexIDPaths, idPathIndexes, root.Hex(), nil
-}
-
-// GetIdentitySet ...
-func (m *Manager) GetIdentitySet(subjectHash *subject.Hash) ([]id.Identity, error) {
-	v, ok := m.voters[subjectHash.Hex()]
-	if !ok {
-		return nil, fmt.Errorf("voter is not instantiated")
-	}
-
-	set := v.GetAllIds()
-	hashSet := make([]id.Identity, len(set))
-	for i, v := range set {
-		hashSet[i] = *id.NewIdentity(v.Hex())
-	}
-
-	return hashSet, nil
-}
-
-// GetBallotSet ...
-func (m *Manager) GetBallotSet(subjectHashHex *subject.HashHex) ([]*ba.Ballot, error) {
-	v, ok := m.voters[*subjectHashHex]
-	if !ok {
-		return nil, fmt.Errorf("voter is not instantiated")
-	}
-
-	ballotSet := make([]*ba.Ballot, 0)
-	for _, b := range v.GetBallotMap() {
-		ballotSet = append(ballotSet, b)
-	}
-
-	return ballotSet, nil
 }
 
 //
