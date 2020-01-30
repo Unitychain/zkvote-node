@@ -88,52 +88,52 @@ func getFileNLine() string {
 
 // LogDebugf ...
 func LogDebugf(s string, args ...interface{}) {
-	logger.Debugf("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
+	logger.Debugf("[%d-%d] %s (%s)", os.Getpid(), Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogDebug ...
 func LogDebug(s string) {
-	logger.Debug("[%d] %s (%s)", Goid(), s, getFileNLine())
+	logger.Debugf("[%d-%d] %s (%s)", os.Getpid(), Goid(), s, getFileNLine())
 }
 
 // LogInfof ...
 func LogInfof(s string, args ...interface{}) {
-	logger.Infof("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
+	logger.Infof("[%d-%d] %s (%s)", os.Getpid(), Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogInfo ...
 func LogInfo(s string) {
-	logger.Infof("[%d] %s (%s)", Goid(), s, getFileNLine())
+	logger.Infof("[%d-%d] %s (%s)", os.Getpid(), Goid(), s, getFileNLine())
 }
 
 // LogWarningf ...
 func LogWarningf(s string, args ...interface{}) {
-	logger.Warningf("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
+	logger.Warningf("[%d-%d] %s (%s)", os.Getpid(), Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogWarning ...
 func LogWarning(s string) {
-	logger.Warningf("[%d] %s (%s)", Goid(), s, getFileNLine())
+	logger.Warningf("[%d-%d] %s (%s)", os.Getpid(), Goid(), s, getFileNLine())
 }
 
 // LogErrorf ...
 func LogErrorf(s string, args ...interface{}) {
-	logger.Errorf("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
+	logger.Errorf("[%d-%d] %s (%s)", os.Getpid(), Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogError ...
 func LogError(s string) {
-	logger.Errorf("[%d] %s (%s)", Goid(), s, getFileNLine())
+	logger.Errorf("[%d-%d] %s (%s)", os.Getpid(), Goid(), s, getFileNLine())
 }
 
 // LogFatalf ...
 func LogFatalf(s string, args ...interface{}) {
-	logger.Fatalf("[%d] %s (%s)", Goid(), fmt.Sprintf(s, args...), getFileNLine())
+	logger.Fatalf("[%d-%d] %s (%s)", os.Getpid(), Goid(), fmt.Sprintf(s, args...), getFileNLine())
 }
 
 // LogFatal ...
 func LogFatal(s string) {
-	logger.Fatalf("[%d] %s (%s)", Goid(), s, getFileNLine())
+	logger.Fatalf("[%d-%d] %s (%s)", os.Getpid(), Goid(), s, getFileNLine())
 }
 
 func Goid() int {
