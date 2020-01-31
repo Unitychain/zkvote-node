@@ -1,13 +1,12 @@
-
-package manager  
+package manager
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 
 	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
@@ -115,7 +114,7 @@ func (m *Manager) loadDB() {
 			if id.Equal(obj.Subject.GetProposer()) {
 				continue
 			}
-			m.InsertIdentity(utils.Remove0x(obj.Subject.HashHex().String()), id.String())
+			m.insertIdentity(utils.Remove0x(obj.Subject.HashHex().String()), id.String(), true)
 		}
 
 		go func() {

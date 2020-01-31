@@ -78,11 +78,20 @@ func NewManager(
 	return m, nil
 }
 
+func finally() {
+	err := recover()
+	if err != nil {
+		utils.LogErrorf("PANIC: %v", err)
+	}
+}
+
 //
 // vote/identity function
 //
 // Propose a new subject
 func (m *Manager) Propose(title string, description string, identityCommitmentHex string) error {
+	defer finally()
+
 	utils.LogInfof("Propose, title:%v, desc:%v, id:%v", title, description, identityCommitmentHex)
 	if 0 == len(title) || 0 == len(identityCommitmentHex) {
 		utils.LogErrorf("Invalid input")
@@ -101,11 +110,14 @@ func (m *Manager) Propose(title string, description string, identityCommitmentHe
 
 // Vote ...
 func (m *Manager) Vote(subjectHashHex string, proof string) error {
+	defer finally()
 	return m.silentVote(subjectHashHex, proof, false)
 }
 
 // Open ...
 func (m *Manager) Open(subjectHashHex string) (int, int) {
+	defer finally()
+
 	utils.LogInfof("Open subject: %v", subjectHashHex)
 	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
 	if !ok {
@@ -117,11 +129,14 @@ func (m *Manager) Open(subjectHashHex string) (int, int) {
 
 // InsertIdentity ...
 func (m *Manager) InsertIdentity(subjectHashHex string, identityCommitmentHex string) error {
+	defer finally()
 	return m.insertIdentity(subjectHashHex, identityCommitmentHex, true)
 }
 
 // OverwriteIdentities ...
 func (m *Manager) OverwriteIdentities(subjectHashHex string, identitySet []string) error {
+	defer finally()
+
 	utils.LogInfof("overwrite, subject:%s", subjectHashHex)
 	if 0 == len(subjectHashHex) || 0 == len(identitySet) {
 		utils.LogErrorf("Invalid input")
@@ -152,6 +167,8 @@ func (m *Manager) OverwriteIdentities(subjectHashHex string, identitySet []strin
 
 // Join an existing subject
 func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) error {
+	defer finally()
+
 	utils.LogInfof("Join, subject:%s, id:%s", subjectHashHex, identityCommitmentHex)
 	if 0 == len(subjectHashHex) || 0 == len(identityCommitmentHex) {
 		utils.LogErrorf("Invalid input")
@@ -163,7 +180,7 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	// No need to new a voter if the subjec is created by itself
 	createdSubs := m.Cache.GetCreatedSubjects()
 	if _, ok := createdSubs[subjHex]; ok {
-		return m.InsertIdentity(subjectHashHex, identityCommitmentHex)
+		return m.insertIdentity(subjectHashHex, identityCommitmentHex, true)
 	}
 
 	collectedSubs := m.Cache.GetCollectedSubjects()
@@ -231,6 +248,8 @@ func (m *Manager) GetProvider(key peer.ID) string {
 //
 // GetSubjectList ...
 func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
+	defer finally()
+
 	result := make([]*subject.Subject, 0)
 	// m.Collect()
 	for _, s := range m.Cache.GetCollectedSubjects() {
@@ -253,6 +272,8 @@ func (m *Manager) GetSubjectList() ([]*subject.Subject, error) {
 
 // GetIdentityIndex ...
 func (m *Manager) GetIdentityIndex() map[subject.HashHex][]id.Identity {
+	defer finally()
+
 	index := make(map[subject.HashHex][]id.Identity)
 	for k, v := range m.voters {
 		index[k] = v.GetAllIdentities()
@@ -266,6 +287,7 @@ func (m *Manager) GetIdentityPath(
 	subjectHashHex string,
 	identityCommitmentHex string) (
 	[]string, []int, string, error) {
+	defer finally()
 
 	voter, ok := m.voters[subject.HashHex(utils.Remove0x(subjectHashHex))]
 	if !ok {

@@ -28,7 +28,7 @@ func (m *Manager) waitSubject(ch chan []string) {
 			m.Cache.InsertColletedSubject(*s.HashHex(), &s)
 		}
 	case <-time.After(30 * time.Second):
-		utils.LogWarning("Collect timeout")
+		utils.LogWarning("waitSubject timeout")
 	}
 
 	close(ch)
@@ -36,6 +36,7 @@ func (m *Manager) waitSubject(ch chan []string) {
 
 // SyncSubject ...
 func (m *Manager) SyncSubjects() {
+	defer finally()
 
 	proposers, err := m.FindProposers()
 	if err != nil {
@@ -89,6 +90,7 @@ func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []stri
 // TODO: move to voter.go
 // SyncIdentity ...
 func (m *Manager) SyncIdentities(subjHex subject.HashHex) (chan bool, error) {
+	defer finally()
 
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
@@ -96,7 +98,7 @@ func (m *Manager) SyncIdentities(subjHex subject.HashHex) (chan bool, error) {
 	// Get peers from the same pubsub
 	strTopic := voter.GetIdentitySub().Topic()
 	peers := m.ps.ListPeers(strTopic)
-	utils.LogDebugf("SyncIdentityIndex peers: %v", peers)
+	utils.LogDebugf("SyncIdentities peers: %v", peers)
 
 	chPeers := make(chan bool, len(peers))
 	for _, peer := range peers {
@@ -137,11 +139,13 @@ func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []str
 
 // SyncBallot ...
 func (m *Manager) SyncBallots(subjHex subject.HashHex) (chan bool, error) {
+	defer finally()
+
 	voter := m.voters[subjHex]
 	subjHash := subjHex.Hash()
 	// Get peers from the same pubsub
 	peers := m.ps.ListPeers(voter.GetVoteSub().Topic())
-	utils.LogDebugf("SyncBallotIndex peers: %v", peers)
+	utils.LogDebugf("SyncBallots peers: %v", peers)
 
 	chPeers := make(chan bool, len(peers))
 	for _, peer := range peers {
