@@ -72,6 +72,11 @@ func (sp *SubjectProtocol) onRequest(s network.Stream) {
 		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription(), Proposer: identity.String()}
 		subjects = append(subjects, subject)
 	}
+	for _, s := range sp.context.Cache.GetCollectedSubjects() {
+		identity := s.GetProposer()
+		subject := &pb.Subject{Title: s.GetTitle(), Description: s.GetDescription(), Proposer: identity.String()}
+		subjects = append(subjects, subject)
+	}
 	resp := &pb.SubjectResponse{Metadata: NewMetadata(sp.context.Host, data.Metadata.Id, false),
 		Message: fmt.Sprintf("Subject response from %s", sp.context.Host.ID()), Subjects: subjects}
 
@@ -113,8 +118,6 @@ func (sp *SubjectProtocol) onResponse(s network.Stream) {
 	for _, sub := range data.Subjects {
 		identity := identity.NewIdentity(sub.Proposer)
 		subject := subject.NewSubject(sub.Title, sub.Description, identity)
-		// subjectMap := sp.context.Cache.GetCollectedSubjects()
-		// subjectMap[*subject.HashHex()] = subject
 
 		b, err := json.Marshal(subject)
 		if err != nil {

@@ -169,12 +169,10 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 	collectedSubs := m.Cache.GetCollectedSubjects()
 	if sub, ok := collectedSubs[subjHex]; ok {
 		_, err := m.initAVoter(sub, identityCommitmentHex, false)
-		// voter, err := voter.NewVoter(sub, m.ps, m.Context, m.zkVerificationKey)
 		if nil != err {
 			utils.LogErrorf("Join, init voter error: %v", err)
 			return err
 		}
-		// m.voters[*sub.HashHex()] = voter
 
 		// Sync identities
 		ch, _ := m.SyncIdentities(subjHex)
@@ -187,11 +185,6 @@ func (m *Manager) Join(subjectHashHex string, identityCommitmentHex string) erro
 			if err != nil {
 				utils.LogErrorf("SyncBallotIndex error, %v", err)
 			}
-
-			// err = m.insertIdentity(sub.HashHex().String(), identityCommitmentHex, true)
-			// if err != nil {
-			// 	utils.LogErrorf("insert ID when join error, %v", err)
-			// }
 
 			<-finished
 			m.saveSubjects()

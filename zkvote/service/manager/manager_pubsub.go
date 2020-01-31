@@ -79,7 +79,7 @@ func (m *Manager) waitIdentities(subjHex subject.HashHex, chIDStrSet chan []stri
 		// Manager needs to overwrite the whole identity pool
 		// to keep the order of the tree the same
 		m.OverwriteIdentities(subjHex.String(), idStrSet)
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		utils.LogWarning("waitIdentities timeout")
 	}
 
@@ -121,10 +121,14 @@ func (m *Manager) waitBallots(subjHex subject.HashHex, chBallotStrSet chan []str
 
 	select {
 	case ballotStrSet := <-chBallotStrSet:
+		utils.LogDebugf("ballot num: %d", len(ballotStrSet))
 		for _, bs := range ballotStrSet {
-			m.silentVote(subjHex.String(), bs, true)
+			err := m.silentVote(subjHex.String(), bs, true)
+			if err != nil {
+				utils.LogErrorf("waitBallots, vote error, %v", err.Error())
+			}
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		utils.LogWarning("waitBallots timeout")
 	}
 
