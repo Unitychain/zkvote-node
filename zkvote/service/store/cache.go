@@ -61,6 +61,9 @@ func (c *Cache) GetACollectedSubject(k subject.HashHex) *subject.Subject {
 
 // InsertCreatedSubject .
 func (c *Cache) InsertCreatedSubject(k subject.HashHex, v *subject.Subject) {
+	if c.isExistedSubject(k) {
+		return
+	}
 	c.createdSubjects[k] = v
 }
 
