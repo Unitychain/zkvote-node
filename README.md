@@ -1,72 +1,41 @@
 # zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on p2p Network
 `zkvote-node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
 
-## Architecture
-![](https://i.imgur.com/REKBanK.png)
+## Overview
+**zkvote** is a powerful tool for anonymous voting. It uses a cryptographic function called ZK-SNARK to keep the voter from revealing its identity. It is also built on a peer-to-peer network so that so single entity or authortity can control the access or result of the voting. Moreover, zkvote utilizes a developing standard called Decentralized Identifier (DID) and Verifiable Credential (VC) to prove the validity of the identity.
 
-- Cmd
-- zkvote(pkg)
-    - Service(pkg)
-        - Node.go
-        - manager(pkg)
-            - Manager(Collector).go
-            - subject_protocol.go
-            - identity_protocol.go
-            - voter(pkg)
-                - Voter.go
-                - IdentityPool(IdentityIMP).go
-                - Proposal.go
-        - zksnark(pkg)
-            - Verifier.go
-        - Store(pkg)
-            - Validator.go
-            - Store.go
-        - utils(pkg)
-        - crypto(pkg)
-    - Model(pkg)
-        - Subject.go
-        - Identity.go
-        - MerkelTree.go
-        - Context.go
-        - pb(pkg)
-            - zkvote.proto
-- restapi(pkg)
-    - Controller
-    - Model
+## How it Works?
+![](https://i.imgur.com/RAAnWn8.png)
 
-## Flow
-- Onboarding flow:
-    - Run `zkvote-node`. The node will connect to other peers in the network.
-        - Use defferent libp2p protocol
-    - Nodes form two networks: DHT and pub/sub
-    - The local running node provides a web UI for the user to register and submit proof.
-    - __A pub/sub topic is a voting subject__
-    - Node can __start a new subject (topic)__ or __discover a subject (topic)__
-        - Use `Discovery` package to look up peers that are topic providers. See https://hackmd.io/@juincc/Hk_0PWFhS
-        - Setup a stream from the joining node and to the topic providers
-        - Topic provides respond their pub/sub topics
-        - The joining node can either
-            - Subscribe to one of the existing topic
-            - Start a new topic, this will make the joining node become one of the topic provider
-        - Attach a description to a topic
-            - Store the description locally
-            - key: topic, value: description
-            - Respond to the requestor as well as the topic name
-        - __Should be able to delegate the role of subject creator__
-- Registering flow:
-    - Subscribe a the topic `T`
-    - Generate or import identity. This includes commitment and nullifier (Refer to semaphore)
-    - Broadcast the hash of its identity to the peers from the same topic `T` so that the peers can index the identity.
-    - Put the identity to the DHT
-- Proving flow:
-    - User generates the proof `P` that corresponds to the topic `T` via cli or web UI
-    - Node broadcast the hash of the proof `P` so that the peers knows how many proofs are in `T` and index these proofs locally.
-    - Node put the proof to the DHT
-    - Proof message doesn't have to be signed
-- Verifying Flow
-    - Node collects the proofs from the DHT by looking up the indexed hash
-    - Node verify the proof to see if it is valid
-    - Node aggregates the result of the proofs
+1. **Generate keypair**
+    - Use `zkvote-web` to generate keypair / DID / identity commitment
+    - Doesn't support import at this moment
+    - Store in browser localStorage
+2. **Propose/Join**
+    - Proposer
+        - Use `zkvote-web` to propoese a new subject
+    - Joiner
+        - Use `zkvote-web` to join an existed subject
+3. **Exchange VC**
+    - Joiner sends its identity commitment to proposer via other network
+      - For example: email, SMS...
+    - Proposer receives the identity commitment of the joiner from the network
+    - Proposer generates a verifiable credential (VC) for joiner and sends it to joiner. This VC includes:
+        - Subject hash
+        - identity commitment of joiner
+        - Signature of issuer
+        - public key of issuer
+    - Joiner receives the VC
+4. **Vote**
+    - Proposer
+        - Generates the proof that corresponds to the subject
+        - Upload the proof and the VC to `zkvote-node`
+    - Joiner
+        - **Verify the VC for the subject**
+        - Generates the proof that corresponds to the subject
+        - Upload the proof and the VC to `zkvote-node`
+5. **Open**
+    - Use `zkvote-web` to see the latest result
 
-## Reference
-- See [this document](https://hackmd.io/@juincc/B1QV5NN5S) for more details
+## Contribution
+See [this document](https://hackmd.io/@juincc/B1QV5NN5S) for more technical details
