@@ -1,7 +1,4 @@
 # zkvote: Using ZK-SNARK to Implement Decentralized Anonymous Voting on p2p Network
-`zkvote-node` is a Kademlia DHT node. Nodes connect with each other to form a mesh network. On top of this network, nodes can propose and anyone could vote with zk. The votes could reveal anytime. (with zk, everyone knows the number of votes without revealing who votes)
-
-## Overview
 **zkvote** is a powerful tool for anonymous voting. It uses a cryptographic function called ZK-SNARK to keep the voter from revealing its identity. It is also built on a peer-to-peer network so that so single entity or authortity can control the access or result of the voting. Moreover, zkvote utilizes a developing standard called Decentralized Identifier (DID) and Verifiable Credential (VC) to prove the validity of the identity.
 
 ## How it Works?
