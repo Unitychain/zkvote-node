@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
 )
 
 // Server ...
@@ -17,9 +17,9 @@ type Server struct {
 }
 
 // NewServer ...
-func NewServer(node *zkvote.Node, serverAddr string) (*Server, error) {
+func NewServer(op *zkvote.Operator, serverAddr string) (*Server, error) {
 	// get all HTTP REST API handlers available for controller API
-	restService, err := NewRESTAPI(node)
+	restService, err := NewRESTAPI(op)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start server:  %w", err)
 	}

@@ -1,4 +1,4 @@
-package service
+package operator
 
 import (
 	"context"
@@ -35,7 +35,7 @@ import (
 const DB_PEER_ID = "peerID"
 
 // Node ...
-type Node struct {
+type Operator struct {
 	*localContext.Context
 	*manager.Manager
 	dht       *dht.IpfsDHT
@@ -70,7 +70,7 @@ func loadPrivateKey(ds datastore.Batching) (crypto.PrivKey, error) {
 }
 
 // NewNode create a new node with its implemented protocols
-func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int) (*Node, error) {
+func NewOperator(ctx context.Context, ds datastore.Batching, relay bool, bucketSize int) (*Operator, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	// Ignoring most errors for brevity
@@ -112,7 +112,7 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 		panic(err)
 	}
 
-	node := &Node{
+	op := &Operator{
 		dht:       d1,
 		pubsub:    ps,
 		db:        ds,
@@ -121,106 +121,106 @@ func NewNode(ctx context.Context, ds datastore.Batching, relay bool, bucketSize 
 	}
 	s, _ := store.NewStore(d1, ds)
 	cache, _ := store.NewCache()
-	node.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
+	op.Context = localContext.NewContext(new(sync.RWMutex), host, s, cache, &ctx)
 
 	vkData, err := ioutil.ReadFile("./snark/verification_key.json")
 	if err != nil {
 		panic(err)
 	}
-	node.Manager, _ = manager.NewManager(ps, d1, node.Context, string(vkData))
+	op.Manager, _ = manager.NewManager(ps, d1, op.Context, string(vkData))
 
 	mdns, err := msdnDiscovery.NewMdnsService(ctx, host, time.Second*5, "")
 	if err != nil {
 		panic(err)
 	}
-	mdns.RegisterNotifee(node)
+	mdns.RegisterNotifee(op)
 
-	return node, nil
+	return op, nil
 }
 
 // HandlePeerFound msdn handler
-func (node *Node) HandlePeerFound(pi peer.AddrInfo) {
-	node.Mutex.Lock()
-	node.mdnsPeers[pi.ID] = pi
-	node.Mutex.Unlock()
+func (o *Operator) HandlePeerFound(pi peer.AddrInfo) {
+	o.Mutex.Lock()
+	o.mdnsPeers[pi.ID] = pi
+	o.Mutex.Unlock()
 
-	if err := node.Context.Host.Connect(*node.Ctx, pi); err != nil {
+	if err := o.Context.Host.Connect(*o.Ctx, pi); err != nil {
 		fmt.Printf("failed to connect to mDNS peer: %s\n", err)
 	}
 }
 
 // Info ...
-func (node *Node) Info() error {
+func (o *Operator) Info() error {
 	// 0b. Let's get a sense of what those defaults are. What transports are we
 	// listening on? Each transport will have a multiaddr. If you run this
 	// multiple times, you will get different port numbers. Note how we listen
 	// on all interfaces by default.
 	// fmt.Println("My addresses:")
-	// for _, a := range node.h.Addrs() {
+	// for _, a := range o.h.Addrs() {
 	// 	fmt.Printf("\t%s\n", a)
 	// }
 
 	fmt.Println()
 	fmt.Println("My peer ID:")
-	fmt.Printf("\t%s\n", node.Host.ID())
+	fmt.Printf("\t%s\n", o.Host.ID())
 
 	fmt.Println()
 	fmt.Println("My identified multiaddrs:")
-	for _, a := range node.Host.Addrs() {
-		fmt.Printf("\t%s/p2p/%s\n", a, node.Host.ID())
+	for _, a := range o.Host.Addrs() {
+		fmt.Printf("\t%s/p2p/%s\n", a, o.Host.ID())
 	}
 
 	// What protocols are added by default?
 	// fmt.Println()
 	// fmt.Println("Protocols:")
-	// for _, p := range node.h.Mux().Protocols() {
+	// for _, p := range o.h.Mux().Protocols() {
 	// 	fmt.Printf("\t%s\n", p)
 	// }
 
 	// What peers do we have in our peerstore? (hint: we've connected to nobody so far).
 	fmt.Println()
 	fmt.Println("Peers in peerstore:")
-	for _, p := range node.Host.Peerstore().PeersWithAddrs() {
+	for _, p := range o.Host.Peerstore().PeersWithAddrs() {
 		fmt.Printf("\t%s\n", p)
 	}
-	fmt.Println(len(node.Host.Peerstore().PeersWithAddrs()))
+	fmt.Println(len(o.Host.Peerstore().PeersWithAddrs()))
 
 	// DHT routing table
 	fmt.Println("DHT Routing table:")
-	node.dht.RoutingTable().Print()
+	o.dht.RoutingTable().Print()
 
 	// Connections
 	fmt.Println("Connections:")
-	fmt.Println(len(node.Host.Network().Conns()))
+	fmt.Println(len(o.Host.Network().Conns()))
 
 	fmt.Println("Created subjectHashHex:")
-	for sh := range node.Cache.GetCreatedSubjects() {
+	for sh := range o.Cache.GetCreatedSubjects() {
 		fmt.Println(sh)
 	}
 
 	fmt.Println("Collected subjects:")
-	fmt.Println(node.Cache.GetCollectedSubjects())
+	fmt.Println(o.Cache.GetCollectedSubjects())
 
 	fmt.Println("Subcribed topics:")
-	fmt.Println(node.pubsub.GetTopics())
+	fmt.Println(o.pubsub.GetTopics())
 
 	fmt.Println("Identity Index:")
-	fmt.Println(node.GetIdentityIndex())
+	fmt.Println(o.GetIdentityIndex())
 
 	fmt.Println("Voter Identity Merkle Tree Contents:")
-	fmt.Println(node.GetVoterIdentities())
+	fmt.Println(o.GetVoterIdentities())
 
 	fmt.Println("Ballot Map:")
-	fmt.Println(node.GetBallotMaps())
+	fmt.Println(o.GetBallotMaps())
 
 	return nil
 }
 
 // DHTBootstrap ...
-func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
+func (o *Operator) DHTBootstrap(seeds ...ma.Multiaddr) error {
 	fmt.Println("Will bootstrap for 30 seconds...")
 
-	ctx, cancel := context.WithTimeout(*node.Ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(*o.Ctx, 30*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -236,7 +236,7 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 			defer wg.Done()
 
 			fmt.Printf("Connecting to peer: %s\n", ai)
-			if err := node.Host.Connect(ctx, ai); err != nil {
+			if err := o.Host.Connect(ctx, ai); err != nil {
 				fmt.Printf("Failed while connecting to peer: %s; %s\n", ai, err)
 			} else {
 				fmt.Printf("Succeeded while connecting to peer: %s\n", ai)
@@ -246,15 +246,15 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 
 	wg.Wait()
 
-	// if err := node.dht.BootstrapRandom(ctx); err != nil && err != context.DeadlineExceeded {
+	// if err := o.dht.BootstrapRandom(ctx); err != nil && err != context.DeadlineExceeded {
 	// 	return fmt.Errorf("failed while bootstrapping DHT: %w", err)
 	// }
-	if err := node.dht.Bootstrap(ctx); err != nil && err != context.DeadlineExceeded {
+	if err := o.dht.Bootstrap(ctx); err != nil && err != context.DeadlineExceeded {
 		return fmt.Errorf("failed while bootstrapping DHT: %w", err)
 	}
 
 	fmt.Println("bootstrap OK! Routing table:")
-	node.dht.RoutingTable().Print()
+	o.dht.RoutingTable().Print()
 
 	return nil
 }
@@ -342,22 +342,22 @@ func (node *Node) DHTBootstrap(seeds ...ma.Multiaddr) error {
 // }
 
 // Run interactive commands
-func (node *Node) Run() {
+func (o *Operator) Run() {
 	commands := []struct {
 		name string
 		exec func() error
 	}{
-		{"My info", node.handleMyInfo},
-		{"Manager: Propose a subject", node.handlePropose},
-		{"Manager: Join a subject", node.handleJoin},
-		{"Manager: Find topic providers", node.handleFindProposers},
-		{"Manager: Collect all topics", node.handleCollect},
-		// {"Manager: Sync identity index", node.handleSyncIdentityIndex},
-		{"Store: Put DHT", node.handlePutDHT},
-		{"Store: Get DHT", node.handleGetDHT},
-		{"Store: Put Local", node.handlePutLocal},
-		{"Store: Get Local", node.handleGetLocal},
-		{"DHT: Bootstrap (all seeds)", node.handleDHTBootstrap},
+		{"My info", o.handleMyInfo},
+		{"Manager: Propose a subject", o.handlePropose},
+		{"Manager: Join a subject", o.handleJoin},
+		{"Manager: Find topic providers", o.handleFindProposers},
+		{"Manager: Collect all topics", o.handleCollect},
+		// {"Manager: Sync identity index", o.handleSyncIdentityIndex},
+		{"Store: Put DHT", o.handlePutDHT},
+		{"Store: Get DHT", o.handleGetDHT},
+		{"Store: Put Local", o.handlePutLocal},
+		{"Store: Get Local", o.handleGetLocal},
+		{"DHT: Bootstrap (all seeds)", o.handleDHTBootstrap},
 	}
 
 	var str []string
@@ -384,35 +384,35 @@ func (node *Node) Run() {
 	}
 }
 
-func (node *Node) handleMyInfo() error {
-	return node.Info()
+func (o *Operator) handleMyInfo() error {
+	return o.Info()
 }
 
-func (node *Node) handleDHTBootstrap() error {
-	return node.DHTBootstrap(dht.DefaultBootstrapPeers...)
+func (o *Operator) handleDHTBootstrap() error {
+	return o.DHTBootstrap(dht.DefaultBootstrapPeers...)
 }
 
-func (node *Node) handlePutDHT() error {
-	// return node.Store.PutDHT()
+func (o *Operator) handlePutDHT() error {
+	// return o.Store.PutDHT()
 	return nil
 }
 
-func (node *Node) handlePutLocal() error {
-	// return node.Store.PutLocal()
+func (o *Operator) handlePutLocal() error {
+	// return o.Store.PutLocal()
 	return nil
 }
 
-func (node *Node) handleGetDHT() error {
-	// return node.Store.GetDHT()
+func (o *Operator) handleGetDHT() error {
+	// return o.Store.GetDHT()
 	return nil
 }
 
-func (node *Node) handleGetLocal() error {
-	// return node.Store.GetLocal()
+func (o *Operator) handleGetLocal() error {
+	// return o.Store.GetLocal()
 	return nil
 }
 
-func (node *Node) handlePropose() error {
+func (o *Operator) handlePropose() error {
 	p := promptui.Prompt{
 		Label: "Subject title",
 	}
@@ -429,10 +429,10 @@ func (node *Node) handlePropose() error {
 		return err
 	}
 
-	return node.Propose(title, description, "")
+	return o.Propose(title, description, "")
 }
 
-func (node *Node) handleJoin() error {
+func (o *Operator) handleJoin() error {
 	p := promptui.Prompt{
 		Label: "Subject hash hex",
 	}
@@ -449,33 +449,33 @@ func (node *Node) handleJoin() error {
 		return err
 	}
 
-	return node.Join(subjectHashHex, identityCommitmentHex)
+	return o.Join(subjectHashHex, identityCommitmentHex)
 }
 
-// func (node *Node) handleSyncIdentityIndex() error {
-// 	return node.SyncIdentityIndex()
+// func (o *Operator) handleSyncIdentityIndex() error {
+// 	return o.SyncIdentityIndex()
 // }
 
-// func (node *Node) handlePrintInboundMessages() error {
-// 	return node.PrintInboundMessages()
+// func (o *Operator) handlePrintInboundMessages() error {
+// 	return o.PrintInboundMessages()
 // }
 
-func (node *Node) handleFindProposers() error {
-	peers, err := node.FindProposers()
+func (o *Operator) handleFindProposers() error {
+	peers, err := o.FindProposers()
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	for p := range peers {
 		fmt.Println("found peer", p)
-		node.SetProvider(p.ID, "")
+		o.SetProvider(p.ID, "")
 	}
 
 	return nil
 }
 
-func (node *Node) handleCollect() error {
-	// subjects, err := node.Collect()
+func (o *Operator) handleCollect() error {
+	// subjects, err := o.Collect()
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }

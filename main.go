@@ -10,7 +10,7 @@ import (
 
 	levelds "github.com/ipfs/go-ds-leveldb"
 	"github.com/unitychain/zkvote-node/restapi"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 
@@ -49,12 +49,12 @@ func main() {
 	// serverPort := strconv.Itoa(rand.Intn(100) + 3000)
 	serverAddr := ":" + strconv.Itoa(*serverPort)
 
-	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize)
+	op, err := zkvote.NewOperator(ctx, ds, relay, bucketSize)
 	if err != nil {
 		panic(err)
 	}
 
-	server, err := restapi.NewServer(node, serverAddr)
+	server, err := restapi.NewServer(op, serverAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +63,7 @@ func main() {
 	fmt.Printf("HTTP server listens to port %d\n", *serverPort)
 
 	if *cmds {
-		node.Run()
+		op.Run()
 	} else {
 		select {}
 	}
