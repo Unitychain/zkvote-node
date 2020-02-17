@@ -6,7 +6,7 @@ import (
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	identityController "github.com/unitychain/zkvote-node/restapi/controller/identity"
 	subjectController "github.com/unitychain/zkvote-node/restapi/controller/subject"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
 )
 
 type allOpts struct {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
 )
 
 // Server ...

@@ -11,7 +11,7 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	identityModel "github.com/unitychain/zkvote-node/restapi/model/identity"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
 	// 	"errors"
 )
 

@@ -9,8 +9,8 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	subjectModel "github.com/unitychain/zkvote-node/restapi/model/subject"
-	subject "github.com/unitychain/zkvote-node/zkvote/model/subject"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	subject "github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator/service"
 	// 	"errors"
 )
 
