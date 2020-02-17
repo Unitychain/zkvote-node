@@ -393,7 +393,8 @@ func (node *Node) handleDHTBootstrap() error {
 }
 
 func (node *Node) handlePutDHT() error {
-	return node.Store.PutDHT()
+	// return node.Store.PutDHT()
+	return nil
 }
 
 func (node *Node) handlePutLocal() error {
@@ -402,7 +403,8 @@ func (node *Node) handlePutLocal() error {
 }
 
 func (node *Node) handleGetDHT() error {
-	return node.Store.GetDHT()
+	// return node.Store.GetDHT()
+	return nil
 }
 
 func (node *Node) handleGetLocal() error {

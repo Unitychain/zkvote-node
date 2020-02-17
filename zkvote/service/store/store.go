@@ -1,6 +1,8 @@
 package store
 
 import (
+	"context"
+
 	"github.com/ipfs/go-datastore"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/whyrusleeping/base32"
@@ -23,46 +25,25 @@ func NewStore(dht *dht.IpfsDHT, db datastore.Batching) (*Store, error) {
 // func (s *Store) InsertSubject(HashHex)
 
 // PutDHT ...
-func (store *Store) PutDHT() error {
-	// ctx := context.Background()
-
-	// scanner := bufio.NewScanner(os.Stdin)
-	// fmt.Print("Key: ")
-	// scanner.Scan()
-	// k := scanner.Text()
-	// fmt.Println("Input key: ", k)
-
-	// fmt.Print("Value: ")
-	// scanner.Scan()
-	// v := scanner.Text()
-	// vb := []byte(v)
-	// fmt.Println("Input value: ", v)
-
-	// err := store.dht.PutValue(ctx, k, vb)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+func (store *Store) PutDHT(k, v string) error {
+	ctx := context.Background()
+	err := store.dht.PutValue(ctx, k, []byte(v))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 // GetDHT ...
-func (store *Store) GetDHT() error {
-	// ctx := context.Background()
+func (store *Store) GetDHT(k string) (string, error) {
+	ctx := context.Background()
 
-	// fmt.Print("Key: ")
-	// scanner := bufio.NewScanner(os.Stdin)
-	// scanner.Scan()
-	// k := scanner.Text()
-	// fmt.Println("Input key: ", k)
-
-	// vb, err := store.dht.GetValue(ctx, k)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// fmt.Println("Value: ", string(vb))
-
-	return nil
+	vb, err := store.dht.GetValue(ctx, k)
+	if err != nil {
+		return "", err
+	}
+	return string(vb), nil
 }
 
 // PutLocal ...
