@@ -10,10 +10,10 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/context"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
-	pb "github.com/unitychain/zkvote-node/zkvote/operator/model/pb"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/model/context"
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
+	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 

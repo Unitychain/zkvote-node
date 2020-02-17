@@ -3,7 +3,7 @@ package protocol
 import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
 type Protocol interface {

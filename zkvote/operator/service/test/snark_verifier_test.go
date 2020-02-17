@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	. "github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
+	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/manager/voter"
 )
 

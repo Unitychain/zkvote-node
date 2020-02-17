@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // Subject ...

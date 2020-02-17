@@ -3,9 +3,9 @@ package store
 import (
 	"strings"
 
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/ballot"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/model/ballot"
+	"github.com/unitychain/zkvote-node/zkvote/model/identity"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 

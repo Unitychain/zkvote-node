@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
-	ba "github.com/unitychain/zkvote-node/zkvote/operator/model/ballot"
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 	"github.com/unitychain/zkvote-node/zkvote/snark"
 )

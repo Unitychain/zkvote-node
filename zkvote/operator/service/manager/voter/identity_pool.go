@@ -1,7 +1,7 @@
 package voter
 
 import (
-	. "github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
+	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
 )
 
 // IdentityPool ...

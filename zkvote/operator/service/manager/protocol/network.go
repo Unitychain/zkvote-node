@@ -11,7 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	pb "github.com/unitychain/zkvote-node/zkvote/operator/model/pb"
+	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 

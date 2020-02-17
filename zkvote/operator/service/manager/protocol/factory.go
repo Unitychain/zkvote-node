@@ -1,6 +1,6 @@
 package protocol
 
-import "github.com/unitychain/zkvote-node/zkvote/operator/model/context"
+import "github.com/unitychain/zkvote-node/zkvote/model/context"
 
 type ProtocolType int
 

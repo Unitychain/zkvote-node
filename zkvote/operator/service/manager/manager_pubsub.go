@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/unitychain/zkvote-node/zkvote/operator/model/subject"
+	"github.com/unitychain/zkvote-node/zkvote/model/subject"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 

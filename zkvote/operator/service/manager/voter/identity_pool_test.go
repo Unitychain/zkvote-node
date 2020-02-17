@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	. "github.com/unitychain/zkvote-node/zkvote/operator/model/identity"
+	. "github.com/unitychain/zkvote-node/zkvote/model/identity"
 
 	"github.com/stretchr/testify/assert"
 )
