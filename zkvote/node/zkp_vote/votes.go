@@ -13,21 +13,21 @@ import (
 type VoteLeaf struct {
 	Subject *s.Subject `json:"subject"`
 	Ballots []int      `json:"ballots"`
-	hash    s.HashHex  `json:"hash"`
+	Hash    s.HashHex  `json:"hash"`
 }
 
 type Votes struct {
-	Votes []*VoteLeaf `json: "VoteLeaves"`
-	Root  *big.Int    `json: "root"`
+	VoteLeaves []*VoteLeaf `json:"VoteLeaves"`
+	Root       *big.Int    `json:"root"`
 }
 
 func NewVotes() (*Votes, error) {
 	return &Votes{
-		Votes: []*VoteLeaf{
+		VoteLeaves: []*VoteLeaf{
 			&VoteLeaf{
 				Subject: nil,
 				Ballots: []int{0, 0},
-				hash:    s.HashHex(""),
+				Hash:    s.HashHex(""),
 			}},
 		Root: big.NewInt(0),
 	}, nil
@@ -87,13 +87,16 @@ func (v *Votes) IsRootMatched(root *big.Int) bool {
 	return false
 }
 
+//
+// Internals
+//
 func (v *Votes) calcRoot() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
 func (v *Votes) getVoteLeaf(subHashHex s.HashHex) *VoteLeaf {
-	for _, l := range v.Votes {
-		if strings.EqualFold(utils.Prepend0x(subHashHex.String()), l.hash.String()) {
+	for _, l := range v.VoteLeaves {
+		if strings.EqualFold(utils.Prepend0x(subHashHex.String()), l.Hash.String()) {
 			return l
 		}
 	}

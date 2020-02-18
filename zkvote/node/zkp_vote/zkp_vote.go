@@ -17,7 +17,7 @@ const ZKPVOTE_DHT_KEY = "zkp-votes"
 
 type RollupProof struct {
 	Root         string                     `json:"root"`
-	ballots      []int                      `json:"ballots"`
+	Ballots      []int                      `json:"ballots"`
 	Proof        *externalVerif.CircomProof `json:"proof"`
 	PublicSignal []string                   `json:"public_signal"`
 }
