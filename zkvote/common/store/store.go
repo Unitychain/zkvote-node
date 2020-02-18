@@ -36,14 +36,14 @@ func (store *Store) PutDHT(k, v string) error {
 }
 
 // GetDHT ...
-func (store *Store) GetDHT(k string) (string, error) {
+func (store *Store) GetDHT(k string) ([]byte, error) {
 	ctx := context.Background()
 
 	vb, err := store.dht.GetValue(ctx, k)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(vb), nil
+	return vb, nil
 }
 
 // PutLocal ...

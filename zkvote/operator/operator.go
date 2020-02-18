@@ -25,9 +25,9 @@ import (
 	"github.com/manifoldco/promptui"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/unitychain/zkvote-node/zkvote/common/store"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/operator/service/manager"
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 
 // node client version

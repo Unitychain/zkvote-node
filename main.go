@@ -10,8 +10,9 @@ import (
 
 	levelds "github.com/ipfs/go-ds-leveldb"
 	"github.com/unitychain/zkvote-node/restapi"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
+	"github.com/unitychain/zkvote-node/zkvote/node"
 	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 
 func main() {
@@ -58,6 +59,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	n := node.NewNode(ctx, ds)
+	_ = n
 
 	go server.ListenAndServe()
 	fmt.Printf("HTTP server listens to port %d\n", *serverPort)

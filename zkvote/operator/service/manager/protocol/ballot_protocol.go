@@ -8,10 +8,10 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	"github.com/unitychain/zkvote-node/zkvote/model/context"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

@@ -7,7 +7,7 @@ import (
 
 	merkletree "github.com/cbergoon/merkletree"
 	hashWrapper "github.com/unitychain/zkvote-node/zkvote/common/crypto"
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 )
 
 //

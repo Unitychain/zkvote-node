@@ -7,7 +7,7 @@ import (
 	"github.com/arnaucube/go-snark/groth16"
 	goSnarkUtils "github.com/arnaucube/go-snark/utils"
 
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 )
 
 // VerifyByFile : verify proof

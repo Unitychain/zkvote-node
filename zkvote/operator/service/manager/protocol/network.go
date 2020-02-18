@@ -11,8 +11,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
-	"github.com/unitychain/zkvote-node/zkvote/operator/service/utils"
 )
 
 // SendProtoMessage helper method - writes a protobuf go data object to a network stream
