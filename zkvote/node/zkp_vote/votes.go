@@ -6,7 +6,9 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/unitychain/zkvote-node/zkvote/common/utils"
+	tree "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	s "github.com/unitychain/zkvote-node/zkvote/model/subject"
 )
 
@@ -19,6 +21,7 @@ type VoteLeaf struct {
 type Votes struct {
 	VoteLeaves []*VoteLeaf `json:"VoteLeaves"`
 	Root       *big.Int    `json:"root"`
+	voteTree   *tree.MerkleTree
 }
 
 func NewVotes() (*Votes, error) {
@@ -51,6 +54,21 @@ func (v *Votes) Serialize() (string, error) {
 	return string(jsonStrB), nil
 }
 
+func (v *Votes) CreateAVote(subject *s.Subject) error {
+	// Or prevent from the same title
+	leaf := v.getVoteLeaf(*subject.HashHex())
+	if leaf != nil {
+		return fmt.Errorf("Subject is existed, hash:%v", subject.HashHex())
+	}
+
+	l := &VoteLeaf{
+		Subject: subject,
+		Ballots: []int{0, 0},
+		Hash:    *subject.HashHex(),
+	}
+	return v.insertLeaf(l)
+}
+
 func (v *Votes) Update(subHashHex s.HashHex, newBallot []int) error {
 	leaf := v.getVoteLeaf(subHashHex)
 	if leaf == nil {
@@ -59,11 +77,7 @@ func (v *Votes) Update(subHashHex s.HashHex, newBallot []int) error {
 	leaf.Ballots[0] = newBallot[0]
 	leaf.Ballots[1] = newBallot[1]
 
-	newRoot, err := v.calcRoot()
-	if err != nil {
-		return err
-	}
-	v.Root = newRoot
+	v.Root = v.calcRoot()
 	return nil
 }
 
@@ -90,8 +104,8 @@ func (v *Votes) IsRootMatched(root *big.Int) bool {
 //
 // Internals
 //
-func (v *Votes) calcRoot() (*big.Int, error) {
-	return big.NewInt(0), nil
+func (v *Votes) calcRoot() *big.Int {
+	return v.voteTree.GetRoot().BigInt()
 }
 
 func (v *Votes) getVoteLeaf(subHashHex s.HashHex) *VoteLeaf {
@@ -101,5 +115,22 @@ func (v *Votes) getVoteLeaf(subHashHex s.HashHex) *VoteLeaf {
 		}
 	}
 	utils.LogWarningf("Can't find subject hash, %v", subHashHex)
+	return nil
+}
+
+func (v *Votes) insertLeaf(leaf *VoteLeaf) error {
+
+	b, e := json.Marshal(v.VoteLeaves)
+	if e != nil {
+		return e
+	}
+
+	x := big.NewInt(0).SetBytes(crypto.Keccak256(b))
+	_, e = v.voteTree.Insert(*tree.NewTreeContent(x))
+	if e != nil {
+		return e
+	}
+
+	v.VoteLeaves = append(v.VoteLeaves, leaf)
 	return nil
 }
