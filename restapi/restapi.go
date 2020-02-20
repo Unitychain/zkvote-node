@@ -6,7 +6,7 @@ import (
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	identityController "github.com/unitychain/zkvote-node/restapi/controller/identity"
 	subjectController "github.com/unitychain/zkvote-node/restapi/controller/subject"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
 )
 
 type allOpts struct {
@@ -28,7 +28,7 @@ func (c *RESTAPI) GetHandlers() []controller.Handler {
 }
 
 // NewRESTAPI returns new controller REST API instance.
-func NewRESTAPI(node *zkvote.Node, opts ...Opt) (*RESTAPI, error) {
+func NewRESTAPI(op *zkvote.Operator, opts ...Opt) (*RESTAPI, error) {
 	restAPIOpts := &allOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -37,12 +37,12 @@ func NewRESTAPI(node *zkvote.Node, opts ...Opt) (*RESTAPI, error) {
 
 	var allHandlers []controller.Handler
 
-	sc, err := subjectController.New(node)
+	sc, err := subjectController.New(op)
 	if err != nil {
 		fmt.Print(err)
 	}
 
-	ic, err := identityController.New(node)
+	ic, err := identityController.New(op)
 	if err != nil {
 		fmt.Print(err)
 	}

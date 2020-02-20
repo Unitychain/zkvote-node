@@ -4,20 +4,21 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"math/rand"
 	"strconv"
-	"time"
 
 	levelds "github.com/ipfs/go-ds-leveldb"
 	"github.com/unitychain/zkvote-node/restapi"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
+	"github.com/unitychain/zkvote-node/zkvote/node"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
 )
 
 func main() {
 	path := flag.String("db", "node_data", "Database folder")
 	serverPort := flag.Int("p", 9900, "Web UI port")
 	cmds := flag.Bool("cmds", false, "Interactive commands")
+	type_operator := flag.Bool("op", true, "activate as an operator")
+	type_node := flag.Bool("n", false, "activate as a node")
 	flag.Parse()
 
 	utils.OpenLog()
@@ -43,28 +44,29 @@ func main() {
 		panic(err)
 	}
 
-	timeSeed := time.Now().UnixNano() / int64(time.Millisecond)
-	rand.Seed(timeSeed)
-	// p2pPort := rand.Intn(100) + 10000
-	// serverPort := strconv.Itoa(rand.Intn(100) + 3000)
-	serverAddr := ":" + strconv.Itoa(*serverPort)
+	if *type_node {
+		n := node.NewNode(ctx, ds, bucketSize)
+		_ = n
+	} else if *type_operator {
+		serverAddr := ":" + strconv.Itoa(*serverPort)
 
-	node, err := zkvote.NewNode(ctx, ds, relay, bucketSize)
-	if err != nil {
-		panic(err)
-	}
+		op, err := zkvote.NewOperator(ctx, ds, relay, bucketSize)
+		if err != nil {
+			panic(err)
+		}
 
-	server, err := restapi.NewServer(node, serverAddr)
-	if err != nil {
-		panic(err)
-	}
+		server, err := restapi.NewServer(op, serverAddr)
+		if err != nil {
+			panic(err)
+		}
 
-	go server.ListenAndServe()
-	fmt.Printf("HTTP server listens to port %d\n", *serverPort)
+		go server.ListenAndServe()
+		fmt.Printf("HTTP server listens to port %d\n", *serverPort)
 
-	if *cmds {
-		node.Run()
-	} else {
-		select {}
+		if *cmds {
+			op.Run()
+		} else {
+			select {}
+		}
 	}
 }

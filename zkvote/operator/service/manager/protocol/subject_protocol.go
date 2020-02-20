@@ -10,11 +10,11 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	uuid "github.com/google/uuid"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	"github.com/unitychain/zkvote-node/zkvote/model/context"
 	"github.com/unitychain/zkvote-node/zkvote/model/identity"
 	pb "github.com/unitychain/zkvote-node/zkvote/model/pb"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 // pattern: /protocol-name/request-or-response-message/version

@@ -11,13 +11,13 @@ import (
 	routingDiscovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	pro "github.com/unitychain/zkvote-node/zkvote/service/manager/protocol"
-	"github.com/unitychain/zkvote-node/zkvote/service/manager/voter"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	pro "github.com/unitychain/zkvote-node/zkvote/operator/service/manager/protocol"
+	"github.com/unitychain/zkvote-node/zkvote/operator/service/manager/voter"
 )
 
 const KEY_SUBJECTS = "subjects"

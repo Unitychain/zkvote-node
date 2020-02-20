@@ -1,32 +1,30 @@
-package voter
+package snark
 
 import (
 	"encoding/json"
-	"io/ioutil"
 
 	goSnarkVerifier "github.com/arnaucube/go-snark/externalVerif"
 	"github.com/arnaucube/go-snark/groth16"
 	goSnarkUtils "github.com/arnaucube/go-snark/utils"
 
-	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 )
 
 // VerifyByFile : verify proof
-func VerifyByFile(vkPath string, pfPath string) bool {
+// func VerifyByFile(vkPath string, pfPath string) bool {
 
-	dat, err := ioutil.ReadFile(pfPath)
-	ballot, err := ba.NewBallot(string(dat))
-	if err != nil {
-		return false
-	}
+// 	dat, err := ioutil.ReadFile(pfPath)
+// 	ballot, err := ba.NewBallot(string(dat))
+// 	if err != nil {
+// 		return false
+// 	}
 
-	vkFile, err := ioutil.ReadFile(vkPath)
-	if err != nil {
-		return false
-	}
-	return Verify(string(vkFile), ballot.Proof, ballot.PublicSignal)
-}
+// 	vkFile, err := ioutil.ReadFile(vkPath)
+// 	if err != nil {
+// 		return false
+// 	}
+// 	return Verify(string(vkFile), ballot.Proof, ballot.PublicSignal)
+// }
 
 // Verify : verify proof
 func Verify(vkString string, proof *goSnarkVerifier.CircomProof, publicSignal []string) bool {

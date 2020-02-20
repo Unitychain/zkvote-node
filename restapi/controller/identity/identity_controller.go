@@ -11,7 +11,7 @@ import (
 
 	"github.com/unitychain/zkvote-node/restapi/controller"
 	identityModel "github.com/unitychain/zkvote-node/restapi/model/identity"
-	zkvote "github.com/unitychain/zkvote-node/zkvote/service"
+	zkvote "github.com/unitychain/zkvote-node/zkvote/operator"
 	// 	"errors"
 )
 
@@ -30,13 +30,13 @@ const (
 // Controller ...
 type Controller struct {
 	handlers []controller.Handler
-	*zkvote.Node
+	*zkvote.Operator
 }
 
 // New ...
-func New(node *zkvote.Node) (*Controller, error) {
+func New(op *zkvote.Operator) (*Controller, error) {
 	controller := &Controller{
-		Node: node,
+		Operator: op,
 	}
 	controller.registerHandler()
 

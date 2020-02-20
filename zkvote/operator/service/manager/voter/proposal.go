@@ -5,9 +5,10 @@ import (
 	"math/big"
 
 	crypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/snark"
 )
 
 type state struct {
@@ -220,7 +221,7 @@ func (p *Proposal) isValidVote(ballot *ba.Ballot, vkString string) (bool, error)
 		return false, fmt.Errorf(fmt.Sprintf("Not a valid vote hash, %v", singalHash))
 	}
 
-	return Verify(vkString, ballot.Proof, ballot.PublicSignal), nil
+	return snark.Verify(vkString, ballot.Proof, ballot.PublicSignal), nil
 }
 
 func (p *Proposal) isVoted(nullifierHash string) bool {

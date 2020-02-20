@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/unitychain/zkvote-node/zkvote/service/store"
+	"github.com/unitychain/zkvote-node/zkvote/common/store"
 )
 
 type Context struct {

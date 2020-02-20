@@ -5,11 +5,11 @@ import (
 	"math/big"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	ba "github.com/unitychain/zkvote-node/zkvote/model/ballot"
 	localContext "github.com/unitychain/zkvote-node/zkvote/model/context"
 	id "github.com/unitychain/zkvote-node/zkvote/model/identity"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 type voterSubscription struct {

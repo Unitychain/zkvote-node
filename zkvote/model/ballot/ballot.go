@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/arnaucube/go-snark/externalVerif"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 )
 
 // Ballot ...

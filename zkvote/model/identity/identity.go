@@ -3,7 +3,7 @@ package identity
 import (
 	"math/big"
 
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 )
 
 // Identity ...

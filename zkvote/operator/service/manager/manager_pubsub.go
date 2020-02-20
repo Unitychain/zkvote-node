@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/unitychain/zkvote-node/zkvote/common/utils"
 	"github.com/unitychain/zkvote-node/zkvote/model/subject"
-	"github.com/unitychain/zkvote-node/zkvote/service/utils"
 )
 
 func (m *Manager) syncSubjectWorker() {
