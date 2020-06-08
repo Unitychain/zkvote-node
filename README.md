@@ -10,9 +10,9 @@
     - Store in browser localStorage
 2. **Propose/Join**
     - Proposer
-        - Use `zkvote-web` to propoese a new subject
+        - Use `zkvote-web` to propose a new subject to be voted on
     - Joiner
-        - Use `zkvote-web` to join an existed subject
+        - Use `zkvote-web` to join an existing subject
 3. **Exchange VC**
     - Joiner sends its identity commitment to proposer via other network
       - For example: email, SMS...
@@ -26,11 +26,11 @@
 4. **Vote**
     - Proposer
         - Generates the proof that corresponds to the subject
-        - Upload the proof and the VC to `zkvote-node`
+        - Uploads the proof and the VC to `zkvote-node`
     - Joiner
         - **Verify the VC for the subject**
         - Generates the proof that corresponds to the subject
-        - Upload the proof and the VC to `zkvote-node`
+        - Uploads the proof and the VC to `zkvote-node`
 5. **Open**
     - Use `zkvote-web` to see the latest result
 
